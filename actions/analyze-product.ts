@@ -23,7 +23,7 @@ async function urlToBase64(url: string): Promise<string | null> {
 // Step 1: Identify the product from the image
 export async function identifyProduct(imageUrl: string) {
   try {
-    console.log("Starting product identification with ChatGPT...")
+    console.log("Starting product identification with API route...")
     console.log("Base URL:", getBaseUrl())
 
     // Validate the image URL

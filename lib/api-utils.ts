@@ -37,7 +37,12 @@ export function getBaseUrl() {
     return window.location.origin
   }
 
-  // Server-side
+  // Server-side - prioritize the production URL for server-side requests
+  if (process.env.NODE_ENV === "production") {
+    return "https://safemom.vercel.app"
+  }
+
+  // For Vercel deployments
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`
   }
@@ -71,6 +76,7 @@ export async function makeApiRequest<T = any>({
   const url = `${baseUrl}${normalizedEndpoint}`
 
   console.log(`Making API request to: ${url}, method: ${method}`)
+  console.log(`Environment: ${process.env.NODE_ENV}, Base URL: ${baseUrl}`)
 
   // Add specific logging for find-ingredients endpoint
   if (endpoint.includes("find-ingredients")) {
@@ -293,34 +299,4 @@ export async function makeApiRequest<T = any>({
 export function isVercelPreviewDeployment(): boolean {
   // Always return false to bypass preview authentication checks
   return false
-
-  /* Original code commented out
-  if (typeof window === "undefined") {
-    // Server-side check
-    return !!process.env.VERCEL_ENV && process.env.VERCEL_ENV === "preview"
-  }
-
-  // Client-side check - look for preview deployment URL patterns
-  const host = window.location.hostname
-  return host.includes("vercel.app") && (host.includes("-git-") || host.includes("-vercel-app"))
-  */
-}
-
-// Function to handle authentication for preview deployments
-async function handlePreviewAuthentication(): Promise<void> {
-  // This is a placeholder for whatever authentication mechanism is needed
-  // For Vercel preview deployments, this might involve:
-  // 1. Redirecting to a login page
-  // 2. Getting a token from localStorage or cookies
-  // 3. Making a specific authentication request
-
-  console.log("Attempting to handle preview deployment authentication...")
-
-  // For now, we'll just wait a moment to simulate an auth attempt
-  await new Promise((resolve) => setTimeout(resolve, 500))
-
-  // In a real implementation, you might:
-  // 1. Check if there's a token in localStorage
-  // 2. If not, redirect to auth page or show a login modal
-  // 3. Once authenticated, store the token for future requests
 }

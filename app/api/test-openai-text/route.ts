@@ -1,14 +1,14 @@
-import { getOpenAIClient } from "@/lib/openai-client"
+export const runtime = "nodejs"
 
 export async function GET(request: Request) {
   try {
-    console.log("Testing OpenAI client for text completion...")
+    console.log("Testing OpenAI API for text completion with direct fetch...")
 
-    // Get the OpenAI client
-    const openai = getOpenAIClient()
-    if (!openai) {
-      console.error("OpenAI client initialization failed")
-      return new Response(JSON.stringify({ error: "OpenAI client initialization failed" }), {
+    // Check for API key presence
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) {
+      console.error("API key missing in environment")
+      return new Response(JSON.stringify({ error: "API key not found" }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
       })
@@ -16,37 +16,50 @@ export async function GET(request: Request) {
 
     // Test a simple text completion
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a skincare ingredients expert. List ingredients accurately and concisely.",
-          },
-          {
-            role: "user",
-            content: "List the common ingredients in CeraVe Moisturizing Cream.",
-          },
-        ],
-        max_tokens: 500,
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a skincare ingredients expert. List ingredients accurately and concisely.",
+            },
+            {
+              role: "user",
+              content: "List the common ingredients in CeraVe Moisturizing Cream.",
+            },
+          ],
+          max_tokens: 500,
+        }),
       })
 
-      const response = completion.choices[0].message.content?.trim() || "No response"
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`OpenAI API error (${response.status}): ${errorText}`)
+      }
+
+      const data = await response.json()
+      const responseText = data.choices[0].message.content?.trim() || "No response"
 
       return new Response(
         JSON.stringify({
           status: "success",
           message: "OpenAI text completion is working correctly",
-          response,
+          response: responseText,
         }),
         {
           status: 200,
           headers: { "Content-Type": "application/json" },
         },
       )
-    } catch (openaiError: any) {
-      console.error("OpenAI API test error:", openaiError)
-      return new Response(JSON.stringify({ error: `OpenAI API test error: ${openaiError.message}` }), {
+    } catch (apiError: any) {
+      console.error("OpenAI API test error:", apiError)
+      return new Response(JSON.stringify({ error: `OpenAI API test error: ${apiError.message}` }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
       })

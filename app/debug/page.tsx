@@ -1,6 +1,7 @@
 import { DiagnosticTool } from "@/components/diagnostic-tool"
 import { Troubleshooter } from "@/components/troubleshooter"
 import { UrlChecker } from "@/components/url-checker"
+import { ProductionStatus } from "@/components/production-status"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
@@ -16,6 +17,11 @@ export default function DebugPage() {
         </div>
 
         <div className="space-y-8">
+          <section>
+            <h2 className="text-xl font-semibold text-purple-700 mb-4">Production Environment Status</h2>
+            <ProductionStatus />
+          </section>
+
           <section>
             <h2 className="text-xl font-semibold text-purple-700 mb-4">URL Configuration</h2>
             <UrlChecker />

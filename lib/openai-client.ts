@@ -1,38 +1,57 @@
-import OpenAI from "openai"
+// This file now only contains helper functions for making direct fetch calls to OpenAI API
+// No SDK is used
 
-// Create a singleton instance of the OpenAI client
-let openaiInstance: OpenAI | null = null
-
-export function getOpenAIClient() {
-  // Check if we're in a browser environment
+/**
+ * Helper function to make a direct API call to the OpenAI API for text completion
+ */
+export async function fetchOpenAICompletion(
+  prompt: string,
+  systemPrompt = "You are a helpful assistant.",
+  model = "gpt-4o",
+  maxTokens = 1000,
+) {
   if (typeof window !== "undefined") {
-    console.error("OpenAI client should not be initialized in browser environment")
-    return null
+    throw new Error("OpenAI API should not be called from browser environment")
   }
 
-  if (!openaiInstance) {
-    if (!process.env.OPENAI_API_KEY) {
-      console.error("OpenAI API key not configured")
-      return null
-    }
-
-    try {
-      openaiInstance = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-        timeout: 60000, // Increase timeout to 60 seconds
-      })
-      console.log("OpenAI client initialized successfully")
-    } catch (error) {
-      console.error("Error initializing OpenAI client:", error)
-      return null
-    }
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OpenAI API key not configured")
   }
-  return openaiInstance
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt,
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: maxTokens,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`OpenAI API error (${response.status}): ${errorText}`)
+  }
+
+  return await response.json()
 }
 
-// Helper function to make a direct API call to the vision API
+/**
+ * Helper function to make a direct API call to the OpenAI Vision API
+ */
 export async function analyzeImageWithVisionAPI(imageUrl: string, prompt: string) {
-  // Check if we're in a browser environment
   if (typeof window !== "undefined") {
     throw new Error("Vision API should not be called from browser environment")
   }
@@ -41,7 +60,6 @@ export async function analyzeImageWithVisionAPI(imageUrl: string, prompt: string
     throw new Error("OpenAI API key not configured")
   }
 
-  // Create the request body exactly as specified in the example
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {

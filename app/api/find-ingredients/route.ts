@@ -10,6 +10,7 @@ export async function POST(request: Request) {
     // Log environment information
     console.log("NODE_ENV:", process.env.NODE_ENV)
     console.log("VERCEL_ENV:", process.env.VERCEL_ENV)
+    console.log("Request URL:", request.url)
 
     // Check for API key presence (without logging the actual key)
     const apiKeyExists = !!process.env.OPENAI_API_KEY
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
       console.error(
         "Available environment variables:",
         Object.keys(process.env)
-          .filter((key) => !key.toLowerCase().includes("key"))
+          .filter((key) => !key.toLowerCase().includes("key") && !key.toLowerCase().includes("secret"))
           .join(", "),
       )
       return NextResponse.json({ error: "API key not found" }, { status: 500 })
