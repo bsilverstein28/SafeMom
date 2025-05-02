@@ -16,6 +16,15 @@ export async function POST(req: Request) {
   try {
     console.log("Received request to /api/analyze-base64")
 
+    // Log environment information
+    console.log("NODE_ENV:", process.env.NODE_ENV)
+    console.log("VERCEL_ENV:", process.env.VERCEL_ENV)
+
+    // Check for API key presence (without logging the actual key)
+    const apiKeyExists = !!process.env.OPENAI_API_KEY
+    console.log("OPENAI_API_KEY exists:", apiKeyExists)
+    console.log("OPENAI_API_KEY length:", apiKeyExists ? process.env.OPENAI_API_KEY.length : 0)
+
     // Parse the request body
     let body
     try {
@@ -36,12 +45,18 @@ export async function POST(req: Request) {
 
     console.log("Base64 image received (length):", base64Image.length)
 
-    // Access the API key securely
+    // Access the API key securely with detailed error logging
     const apiKey = process.env.OPENAI_API_KEY
 
     if (!apiKey) {
-      console.error("API key is missing")
-      return NextResponse.json({ error: "Missing API Key" }, { status: 500 })
+      console.error("API key missing in environment")
+      console.error(
+        "Available environment variables:",
+        Object.keys(process.env)
+          .filter((key) => !key.toLowerCase().includes("key"))
+          .join(", "),
+      )
+      return NextResponse.json({ error: "API key not found" }, { status: 500 })
     }
 
     try {
