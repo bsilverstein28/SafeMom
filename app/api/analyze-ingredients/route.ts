@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server"
 import OpenAI from "openai"
 
 // Explicitly set the runtime to nodejs
@@ -16,6 +15,7 @@ function getOpenAIClient() {
 
     openaiInstance = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      timeout: 60000, // Increase timeout to 60 seconds
     })
   }
   return openaiInstance
@@ -24,16 +24,32 @@ function getOpenAIClient() {
 export async function POST(request: Request) {
   try {
     // Parse the request body
-    const { ingredients } = await request.json()
+    let ingredients
+    try {
+      const body = await request.json()
+      ingredients = body.ingredients
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError)
+      return new Response(JSON.stringify({ error: "Invalid request body" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
 
     if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
-      return NextResponse.json({ error: "No ingredients provided" }, { status: 400 })
+      return new Response(JSON.stringify({ error: "No ingredients provided" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
     // Get the OpenAI client
     const openai = getOpenAIClient()
     if (!openai) {
-      return NextResponse.json({ error: "OpenAI client initialization failed" }, { status: 500 })
+      return new Response(JSON.stringify({ error: "OpenAI client initialization failed" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
     try {
@@ -94,17 +110,29 @@ export async function POST(request: Request) {
         }
       }
 
-      return NextResponse.json({
-        harmfulIngredients: safetyResults.harmfulIngredients || [],
-        isSafe: safetyResults.isSafe,
-        parsingError: safetyResults.parsingError,
-      })
+      return new Response(
+        JSON.stringify({
+          harmfulIngredients: safetyResults.harmfulIngredients || [],
+          isSafe: safetyResults.isSafe,
+          parsingError: safetyResults.parsingError,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      )
     } catch (openaiError: any) {
       console.error("OpenAI API error:", openaiError)
-      return NextResponse.json({ error: `OpenAI API error: ${openaiError.message}` }, { status: 500 })
+      return new Response(JSON.stringify({ error: `OpenAI API error: ${openaiError.message}` }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
     }
   } catch (error: any) {
     console.error("Error analyzing ingredients:", error)
-    return NextResponse.json({ error: `Failed to analyze ingredients: ${error.message}` }, { status: 500 })
+    return new Response(JSON.stringify({ error: `Failed to analyze ingredients: ${error.message}` }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    })
   }
 }

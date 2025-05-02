@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server"
 import OpenAI from "openai"
 
 // Explicitly set the runtime to nodejs
@@ -16,6 +15,7 @@ function getOpenAIClient() {
 
     openaiInstance = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      timeout: 60000, // Increase timeout to 60 seconds
     })
   }
   return openaiInstance
@@ -24,16 +24,32 @@ function getOpenAIClient() {
 export async function POST(request: Request) {
   try {
     // Parse the request body
-    const { productName } = await request.json()
+    let productName
+    try {
+      const body = await request.json()
+      productName = body.productName
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError)
+      return new Response(JSON.stringify({ error: "Invalid request body" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
 
     if (!productName) {
-      return NextResponse.json({ error: "No product name provided" }, { status: 400 })
+      return new Response(JSON.stringify({ error: "No product name provided" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
     // Get the OpenAI client
     const openai = getOpenAIClient()
     if (!openai) {
-      return NextResponse.json({ error: "OpenAI client initialization failed" }, { status: 500 })
+      return new Response(JSON.stringify({ error: "OpenAI client initialization failed" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
     try {
@@ -62,16 +78,28 @@ export async function POST(request: Request) {
         .filter((ingredient) => ingredient.length > 0)
 
       if (ingredientsList.length === 0) {
-        return NextResponse.json({ error: "Could not find ingredients for the product" }, { status: 400 })
+        return new Response(JSON.stringify({ error: "Could not find ingredients for the product" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        })
       }
 
-      return NextResponse.json({ ingredients: ingredientsList })
+      return new Response(JSON.stringify({ ingredients: ingredientsList }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
     } catch (openaiError: any) {
       console.error("OpenAI API error:", openaiError)
-      return NextResponse.json({ error: `OpenAI API error: ${openaiError.message}` }, { status: 500 })
+      return new Response(JSON.stringify({ error: `OpenAI API error: ${openaiError.message}` }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
     }
   } catch (error: any) {
     console.error("Error finding ingredients:", error)
-    return NextResponse.json({ error: `Failed to find ingredients: ${error.message}` }, { status: 500 })
+    return new Response(JSON.stringify({ error: `Failed to find ingredients: ${error.message}` }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    })
   }
 }

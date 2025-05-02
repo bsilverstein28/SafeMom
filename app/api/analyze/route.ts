@@ -1,12 +1,15 @@
 import OpenAI from "openai"
-import { NextResponse } from "next/server"
 
 // Drop Edge runtime, use Node.js for higher size limit
 export const runtime = "nodejs"
 
 // Raise body-parser cap to 10MB
 export const config = {
-  api: { bodyParser: { sizeLimit: "10mb" } },
+  api: {
+    bodyParser: {
+      sizeLimit: "10mb",
+    },
+  },
 }
 
 // Create a singleton instance of the OpenAI client
@@ -21,15 +24,16 @@ function getOpenAIClient() {
 
     openaiInstance = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      timeout: 60000, // Increase timeout to 60 seconds
     })
   }
   return openaiInstance
 }
 
 export async function POST(req: Request) {
-  console.log("Received request to /api/analyze")
-
   try {
+    console.log("Received request to /api/analyze")
+
     // Parse the request body
     let body
     try {
@@ -37,7 +41,10 @@ export async function POST(req: Request) {
       console.log("Request body parsed successfully")
     } catch (parseError) {
       console.error("Error parsing request body:", parseError)
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+      return new Response(JSON.stringify({ error: "Invalid request body" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
     const { imageUrl, prompt } = body
@@ -45,7 +52,10 @@ export async function POST(req: Request) {
     // Validate input
     if (!imageUrl) {
       console.error("No image URL provided")
-      return NextResponse.json({ error: "No image URL provided" }, { status: 400 })
+      return new Response(JSON.stringify({ error: "No image URL provided" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
     console.log("Image URL received:", imageUrl.substring(0, 50) + "...")
@@ -54,7 +64,10 @@ export async function POST(req: Request) {
     const openai = getOpenAIClient()
     if (!openai) {
       console.error("OpenAI client initialization failed")
-      return NextResponse.json({ error: "OpenAI client initialization failed" }, { status: 500 })
+      return new Response(JSON.stringify({ error: "OpenAI client initialization failed" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
     console.log("OpenAI client initialized successfully")
@@ -94,22 +107,24 @@ export async function POST(req: Request) {
       const productName = completion.choices[0].message.content?.trim()
       console.log("Product identified:", productName)
 
-      return NextResponse.json({
-        product: productName,
+      return new Response(JSON.stringify({ product: productName }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
       })
     } catch (openaiError: any) {
       console.error("OpenAI API error:", openaiError)
 
       // Return a proper error response instead of throwing
-      return NextResponse.json(
-        {
-          error: `OpenAI API error: ${openaiError.message}`,
-        },
-        { status: 500 },
-      )
+      return new Response(JSON.stringify({ error: `OpenAI API error: ${openaiError.message}` }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
     }
   } catch (error: any) {
     console.error("Error in analyze API:", error)
-    return NextResponse.json({ error: `Failed to analyze image: ${error.message}` }, { status: 500 })
+    return new Response(JSON.stringify({ error: `Failed to analyze image: ${error.message}` }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    })
   }
 }

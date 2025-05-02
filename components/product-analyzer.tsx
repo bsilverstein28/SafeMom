@@ -6,8 +6,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ImageUploader } from "@/components/image-uploader"
 import { AnalysisResults } from "@/components/analysis-results"
 import { identifyProduct, findIngredients, analyzeIngredients } from "@/actions/analyze-product"
-import { AlertCircle, ArrowRight, CheckCircle, Loader2, WifiOff } from "lucide-react"
+import { ArrowRight, CheckCircle, Loader2, WifiOff } from "lucide-react"
 import { StepIndicator } from "@/components/step-indicator"
+import { ErrorDisplay } from "@/components/error-display"
 
 type AnalysisStep = 1 | 2 | 3 | 4 // 4 is the results step
 
@@ -18,6 +19,7 @@ export function ProductAnalyzer() {
   const [currentStep, setCurrentStep] = useState<AnalysisStep>(1)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorDiagnostics, setErrorDiagnostics] = useState<any>(null)
   const [isOnline, setIsOnline] = useState(true)
 
   // Step results
@@ -60,6 +62,7 @@ export function ProductAnalyzer() {
     setIngredients([])
     setSafetyResults(null)
     setError(null)
+    setErrorDiagnostics(null)
   }
 
   const handleReset = () => {
@@ -81,6 +84,7 @@ export function ProductAnalyzer() {
 
     setIsLoading(true)
     setError(null)
+    setErrorDiagnostics(null)
 
     try {
       const result = await identifyProduct(imageUrl)
@@ -88,6 +92,9 @@ export function ProductAnalyzer() {
       // Check for error in the result
       if (result.error) {
         setError(result.error)
+        if (result.diagnostics) {
+          setErrorDiagnostics(result.diagnostics)
+        }
         return
       }
 
@@ -117,6 +124,7 @@ export function ProductAnalyzer() {
 
     setIsLoading(true)
     setError(null)
+    setErrorDiagnostics(null)
 
     try {
       const result = await findIngredients(productName)
@@ -124,6 +132,9 @@ export function ProductAnalyzer() {
       // Check for error in the result
       if (result.error) {
         setError(result.error)
+        if (result.diagnostics) {
+          setErrorDiagnostics(result.diagnostics)
+        }
         return
       }
 
@@ -153,6 +164,7 @@ export function ProductAnalyzer() {
 
     setIsLoading(true)
     setError(null)
+    setErrorDiagnostics(null)
 
     try {
       const result = await analyzeIngredients(ingredients)
@@ -160,6 +172,9 @@ export function ProductAnalyzer() {
       // Check for error in the result
       if (result.error) {
         setError(result.error)
+        if (result.diagnostics) {
+          setErrorDiagnostics(result.diagnostics)
+        }
         return
       }
 
@@ -221,7 +236,7 @@ export function ProductAnalyzer() {
                     </>
                   )}
                 </Button>
-                {error && renderError()}
+                {error && <ErrorDisplay error={error} diagnostics={errorDiagnostics} />}
               </div>
             </div>
             <Button
@@ -281,7 +296,7 @@ export function ProductAnalyzer() {
                     </>
                   )}
                 </Button>
-                {error && renderError()}
+                {error && <ErrorDisplay error={error} diagnostics={errorDiagnostics} />}
               </div>
             </div>
             <Button
@@ -356,7 +371,7 @@ export function ProductAnalyzer() {
                     </>
                   )}
                 </Button>
-                {error && renderError()}
+                {error && <ErrorDisplay error={error} diagnostics={errorDiagnostics} />}
               </div>
             </div>
             <Button
@@ -401,13 +416,6 @@ export function ProductAnalyzer() {
         )
     }
   }
-
-  const renderError = () => (
-    <div className="bg-red-50 p-3 rounded-md border border-red-200 flex items-start gap-2">
-      <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-      <p className="text-red-700 text-sm">{error}</p>
-    </div>
-  )
 
   return (
     <div className="space-y-6">

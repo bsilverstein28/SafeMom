@@ -1,9 +1,21 @@
-import { NextResponse } from "next/server"
-
 export async function GET() {
-  return NextResponse.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    message: "API is reachable",
-  })
+  try {
+    return new Response(
+      JSON.stringify({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        message: "API is reachable",
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    )
+  } catch (error: any) {
+    console.error("Error in ping endpoint:", error)
+    return new Response(JSON.stringify({ error: `Ping endpoint error: ${error.message}` }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
 }

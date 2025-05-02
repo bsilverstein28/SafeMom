@@ -1,5 +1,8 @@
 import { ProductAnalyzer } from "@/components/product-analyzer"
 import { ConnectivityCheck } from "@/components/connectivity-check"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Bug } from "lucide-react"
 
 export default function Home() {
   return (
@@ -14,6 +17,15 @@ export default function Home() {
         </div>
 
         <ProductAnalyzer />
+
+        <div className="mt-8 text-center">
+          <Button asChild variant="ghost" size="sm" className="text-purple-600 text-xs">
+            <Link href="/debug" className="flex items-center gap-1">
+              <Bug className="h-3 w-3" />
+              Troubleshoot
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <ConnectivityCheck />
