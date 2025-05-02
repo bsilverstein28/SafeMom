@@ -562,13 +562,13 @@ export function ProductAnalyzer() {
 
   return (
     <div className="space-y-6">
-      <SavedSearches onSelectSearch={handleSelectSavedSearch} />
-
       <StepIndicator currentStep={currentStep} />
 
       <Card className="w-full shadow-md bg-white border-purple-200">
         <CardContent className="p-6">{renderStepContent()}</CardContent>
       </Card>
+
+      <SavedSearches onSelectSearch={handleSelectSavedSearch} />
     </div>
   )
 }
