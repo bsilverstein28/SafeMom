@@ -5,10 +5,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ImageUploader } from "@/components/image-uploader"
 import { AnalysisResults } from "@/components/analysis-results"
+import { SavedSearches } from "@/components/saved-searches"
 import { identifyProduct, findIngredients, analyzeIngredients } from "@/actions/analyze-product"
-import { ArrowRight, CheckCircle, Loader2, WifiOff } from "lucide-react"
+import { ArrowRight, CheckCircle, Loader2, WifiOff, Save, Check } from "lucide-react"
 import { StepIndicator } from "@/components/step-indicator"
 import { ErrorDisplay } from "@/components/error-display"
+import { saveSearchResult } from "@/lib/saved-searches"
+import type { AnalysisResult } from "@/lib/types"
+import { v4 as uuidv4 } from "uuid"
 
 type AnalysisStep = 1 | 2 | 3 | 4 // 4 is the results step
 
@@ -21,6 +25,9 @@ export function ProductAnalyzer() {
   const [error, setError] = useState<string | null>(null)
   const [errorDiagnostics, setErrorDiagnostics] = useState<any>(null)
   const [isOnline, setIsOnline] = useState(true)
+  const [isFromSavedSearch, setIsFromSavedSearch] = useState(false)
+  const [isSaved, setIsSaved] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   // Step results
   const [productName, setProductName] = useState<string>("")
@@ -54,6 +61,8 @@ export function ProductAnalyzer() {
     console.log("Image uploaded:", { blobUrl, preview, detectedProduct })
     setImageUrl(blobUrl)
     setPreviewUrl(preview)
+    setIsFromSavedSearch(false)
+    setIsSaved(false)
 
     // If we already have a product name from the direct analysis, use it and skip to step 2
     if (detectedProduct) {
@@ -76,6 +85,7 @@ export function ProductAnalyzer() {
     setSafetyResults(null)
     setError(null)
     setErrorDiagnostics(null)
+    setIsSaved(false)
   }
 
   const handleReset = () => {
@@ -83,7 +93,60 @@ export function ProductAnalyzer() {
     setPreviewUrl(null)
     setCurrentStep(1)
     setProductName("")
+    setIsFromSavedSearch(false)
+    setIsSaved(false)
     resetResults()
+  }
+
+  // Handle selecting a saved search
+  const handleSelectSavedSearch = (search: AnalysisResult) => {
+    setImageUrl(search.imageUrl)
+    setPreviewUrl(search.imageUrl)
+    setProductName(search.product)
+    setIngredients(search.ingredients)
+    setSafetyResults({
+      harmfulIngredients: search.harmfulIngredients,
+      isSafe: search.isSafe,
+      parsingError: search.parsingError,
+    })
+    setCurrentStep(4)
+    setIsFromSavedSearch(true)
+    setIsSaved(true) // It's already saved
+    setError(null)
+    setErrorDiagnostics(null)
+  }
+
+  // Save the current result
+  const handleSaveResult = () => {
+    if (!imageUrl || !productName || !safetyResults || ingredients.length === 0) {
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      const searchResult: AnalysisResult = {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        product: productName,
+        imageUrl: previewUrl || imageUrl,
+        ingredients: ingredients,
+        harmfulIngredients: safetyResults.harmfulIngredients || [],
+        isSafe: safetyResults.isSafe,
+        parsingError: safetyResults.parsingError,
+      }
+
+      saveSearchResult(searchResult)
+      setIsSaved(true)
+
+      // Small delay to show the saving animation
+      setTimeout(() => {
+        setIsSaving(false)
+      }, 800)
+    } catch (error) {
+      console.error("Error saving result:", error)
+      setIsSaving(false)
+    }
   }
 
   // Step 1: Identify the product
@@ -199,6 +262,7 @@ export function ProductAnalyzer() {
     setIsLoading(true)
     setError(null)
     setErrorDiagnostics(null)
+    setIsSaved(false)
 
     try {
       console.log("Analyzing ingredients:", ingredients)
@@ -216,6 +280,9 @@ export function ProductAnalyzer() {
 
       setSafetyResults(result)
       setCurrentStep(4)
+
+      // No longer automatically save the result
+      // Now the user will explicitly save using the Save button
     } catch (err: any) {
       console.error("Safety analysis error:", err)
       setError(`An unexpected error occurred: ${err.message || "Unknown error"}`)
@@ -247,7 +314,7 @@ export function ProductAnalyzer() {
               </div>
               <div className="flex-1 space-y-4">
                 <h3 className="text-lg font-medium text-purple-800">Step 1: Identify Product</h3>
-                <p className="text-gray-600 text-sm">First, we'll use ChatGPT to identify the product in your photo.</p>
+                <p className="text-gray-600 text-sm">First, we'll use AI to identify the product in your photo.</p>
                 <Button
                   onClick={handleIdentifyProduct}
                   disabled={isLoading || !isOnline}
@@ -306,7 +373,7 @@ export function ProductAnalyzer() {
               <div className="flex-1 space-y-4">
                 <h3 className="text-lg font-medium text-purple-800">Step 2: Find Ingredients</h3>
                 <p className="text-gray-600 text-sm">
-                  Next, we'll use ChatGPT to search for the ingredients in {productName}.
+                  Next, we'll use AI to search for the ingredients in {productName}.
                 </p>
                 <Button
                   onClick={handleFindIngredients}
@@ -375,7 +442,7 @@ export function ProductAnalyzer() {
               <div className="flex-1 space-y-4">
                 <h3 className="text-lg font-medium text-purple-800">Step 3: Analyze for Pregnancy Safety</h3>
                 <p className="text-gray-600 text-sm">
-                  Finally, we'll use ChatGPT to analyze if any ingredients are potentially harmful during pregnancy.
+                  Finally, we'll use AI to analyze if any ingredients are potentially harmful during pregnancy.
                 </p>
                 <div className="bg-purple-50 p-3 rounded-md border border-purple-200 max-h-40 overflow-y-auto">
                   <h4 className="font-medium text-purple-700 mb-2">Identified Ingredients:</h4>
@@ -443,11 +510,51 @@ export function ProductAnalyzer() {
                     }}
                   />
                 )}
+                {isFromSavedSearch && (
+                  <div className="mt-4 bg-blue-50 p-3 rounded-md border border-blue-200">
+                    <p className="text-blue-700 text-sm">
+                      This is a saved result. No new API calls were made to retrieve this information.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-            <Button onClick={handleReset} className="w-full bg-purple-600 hover:bg-purple-700">
-              Analyze Another Product
-            </Button>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button onClick={handleReset} className="w-full bg-purple-600 hover:bg-purple-700">
+                Analyze Another Product
+              </Button>
+
+              {!isFromSavedSearch && (
+                <Button
+                  onClick={handleSaveResult}
+                  disabled={isSaving || isSaved}
+                  variant={isSaved ? "outline" : "secondary"}
+                  className={`w-full ${
+                    isSaved
+                      ? "border-green-300 text-green-700 bg-green-50"
+                      : "bg-purple-100 text-purple-800 hover:bg-purple-200"
+                  }`}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : isSaved ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Saved
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Result
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         )
     }
@@ -455,6 +562,8 @@ export function ProductAnalyzer() {
 
   return (
     <div className="space-y-6">
+      <SavedSearches onSelectSearch={handleSelectSavedSearch} />
+
       <StepIndicator currentStep={currentStep} />
 
       <Card className="w-full shadow-md bg-white border-purple-200">

@@ -3,16 +3,26 @@ import { ConnectivityCheck } from "@/components/connectivity-check"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Bug } from "lucide-react"
+import Image from "next/image"
 
 export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center p-4 md:p-8 bg-gradient-to-b from-purple-100 to-white">
       <div className="max-w-3xl w-full">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl md:text-4xl font-bold text-purple-800 mb-2">Pregnancy-Safe Skincare Analyzer</h1>
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/images/babysafe-logo.png"
+              alt="BabySafe Logo"
+              width={300}
+              height={100}
+              priority
+              className="h-auto"
+            />
+          </div>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Upload a photo of your skincare product and follow the steps to check if it's safe during pregnancy.
-            <span className="block mt-1 text-sm text-purple-600">Powered by ChatGPT</span>
+            BabySafe uses AI to ensure the products you use during your pregnancy are safe. Simply snap a picture, and
+            BabySafe will tell you if a product contains ingredients you should avoid during your pregnancy.
           </p>
         </div>
 
@@ -25,6 +35,14 @@ export default function Home() {
               Troubleshoot
             </Link>
           </Button>
+        </div>
+
+        <div className="mt-10 text-center">
+          <p className="text-xs text-gray-500 max-w-2xl mx-auto border-t border-gray-200 pt-4">
+            Please note: BabySafe's ingredient analysis is AI-powered and intended for informational purposes. It does
+            not constitute medical advice. Consult your healthcare provider for any health concerns or decisions during
+            pregnancy.
+          </p>
         </div>
       </div>
 
