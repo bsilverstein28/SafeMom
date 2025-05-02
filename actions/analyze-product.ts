@@ -7,9 +7,44 @@ export async function identifyProduct(imageUrl: string) {
   try {
     console.log("Starting product identification with ChatGPT...")
     console.log("Base URL:", getBaseUrl())
-    console.log("Image URL:", imageUrl.substring(0, 50) + (imageUrl.length > 50 ? "..." : ""))
 
-    // Use the helper function to make the API request
+    // Validate the image URL
+    if (!imageUrl || typeof imageUrl !== "string") {
+      console.error("Invalid image URL provided")
+      return { error: "Invalid image URL provided" }
+    }
+
+    console.log("Image URL length:", imageUrl.length)
+
+    // First, try the direct approach
+    try {
+      console.log("Trying direct API call...")
+
+      // Make a direct fetch call to the API
+      const response = await fetch(`${getBaseUrl()}/api/analyze`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ imageUrl }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.product) {
+          console.log("Direct API call successful, product identified:", data.product)
+          return { product: data.product }
+        }
+      } else {
+        console.log("Direct API call failed, status:", response.status)
+      }
+    } catch (directError) {
+      console.error("Error with direct API call:", directError)
+      // Continue to fallback approach
+    }
+
+    // Fallback to the makeApiRequest helper
+    console.log("Falling back to makeApiRequest helper...")
     const { data, error, diagnostics } = await makeApiRequest({
       endpoint: "/api/analyze",
       data: { imageUrl },
@@ -38,6 +73,7 @@ export async function identifyProduct(imageUrl: string) {
     return { product: productName }
   } catch (error: any) {
     console.error("Error identifying product:", error)
+    console.error("Error stack:", error.stack)
     return { error: `Failed to identify product: ${error.message}` }
   }
 }

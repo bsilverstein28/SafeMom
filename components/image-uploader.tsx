@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Upload, Camera, Loader2 } from "lucide-react"
+import { getBaseUrl } from "@/lib/api-utils"
 
 interface ImageUploaderProps {
   onImageSelected: (imageUrl: string, previewUrl: string) => void
@@ -51,11 +52,35 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
     try {
       // Create a local preview
       const reader = new FileReader()
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const previewUrl = e.target?.result as string
 
-        // Upload to Vercel Blob
-        uploadToBlob(file, previewUrl)
+        try {
+          // Try the new direct upload endpoint first
+          const formData = new FormData()
+          formData.append("file", file)
+
+          const response = await fetch(`${getBaseUrl()}/api/analyze-image`, {
+            method: "POST",
+            body: formData,
+          })
+
+          if (response.ok) {
+            const result = await response.json()
+            if (result.imageUrl) {
+              console.log("Image analyzed successfully:", result)
+              onImageSelected(result.imageUrl, previewUrl)
+              return
+            }
+          }
+
+          // Fallback to the original upload method
+          uploadToBlob(file, previewUrl)
+        } catch (error) {
+          console.error("Error with direct upload:", error)
+          // Fallback to the original upload method
+          uploadToBlob(file, previewUrl)
+        }
       }
       reader.readAsDataURL(file)
     } catch (error) {
@@ -70,7 +95,7 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
       const formData = new FormData()
       formData.append("file", file)
 
-      const response = await fetch("/api/upload-image", {
+      const response = await fetch(`${getBaseUrl()}/api/upload-image`, {
         method: "POST",
         body: formData,
       })
@@ -102,7 +127,7 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
 
       // Pass both the blob URL and the preview URL to the parent component
       onImageSelected(result.url, previewUrl)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading to Blob:", error)
       setUploadError(error.message || "Failed to upload the image")
     } finally {
