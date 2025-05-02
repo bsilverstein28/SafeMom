@@ -100,8 +100,11 @@ export function ProductAnalyzer() {
 
   // Handle selecting a saved search
   const handleSelectSavedSearch = (search: AnalysisResult) => {
-    setImageUrl(search.imageUrl)
-    setPreviewUrl(search.imageUrl)
+    // Ensure we have a valid image URL
+    const imageUrl = search.imageUrl || "/placeholder.svg"
+
+    setImageUrl(imageUrl)
+    setPreviewUrl(imageUrl)
     setProductName(search.product)
     setIngredients(search.ingredients)
     setSafetyResults({
@@ -129,7 +132,7 @@ export function ProductAnalyzer() {
         id: uuidv4(),
         timestamp: new Date().toISOString(),
         product: productName,
-        imageUrl: previewUrl || imageUrl,
+        imageUrl: previewUrl || imageUrl || "/placeholder.svg",
         ingredients: ingredients,
         harmfulIngredients: safetyResults.harmfulIngredients || [],
         isSafe: safetyResults.isSafe,

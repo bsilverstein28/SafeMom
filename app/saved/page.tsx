@@ -121,6 +121,9 @@ export default function SavedSearchesPage() {
                             src={search.imageUrl || "/placeholder.svg"}
                             alt={search.product}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = "/placeholder.svg"
+                            }}
                           />
                         </div>
 
@@ -170,6 +173,9 @@ export default function SavedSearchesPage() {
                           src={selectedSearch.imageUrl || "/placeholder.svg"}
                           alt={selectedSearch.product}
                           className="w-full h-auto object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = "/placeholder.svg"
+                          }}
                         />
                       </div>
                       <div className="flex-1">

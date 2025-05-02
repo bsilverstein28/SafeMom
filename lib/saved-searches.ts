@@ -8,6 +8,11 @@ export function saveSearchResult(result: AnalysisResult): void {
   if (typeof window === "undefined") return
 
   try {
+    // Ensure the imageUrl is valid
+    if (!result.imageUrl) {
+      result.imageUrl = "/placeholder.svg"
+    }
+
     // Get existing searches
     const savedSearches = getSavedSearches()
 

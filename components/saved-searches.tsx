@@ -91,6 +91,9 @@ export function SavedSearches({ onSelectSearch }: SavedSearchesProps) {
                       src={search.imageUrl || "/placeholder.svg"}
                       alt={search.product}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder.svg"
+                      }}
                     />
                   </div>
 
