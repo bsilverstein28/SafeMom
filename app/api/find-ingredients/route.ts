@@ -1,4 +1,4 @@
-import OpenAI from "openai"
+import { NextResponse } from "next/server"
 
 // Explicitly set the runtime to nodejs for secure server-side execution
 export const runtime = "nodejs"
@@ -15,55 +15,57 @@ export async function POST(request: Request) {
       console.log("Product name received:", productName)
     } catch (parseError) {
       console.error("Error parsing request body:", parseError)
-      return new Response(JSON.stringify({ error: "Invalid request body" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
 
     if (!productName) {
       console.error("No product name provided in request")
-      return new Response(JSON.stringify({ error: "No product name provided" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: "No product name provided" }, { status: 400 })
     }
 
     // Initialize OpenAI client directly in the API route
     if (!process.env.OPENAI_API_KEY) {
       console.error("OpenAI API key not configured")
-      return new Response(JSON.stringify({ error: "OpenAI API key not configured" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 })
     }
 
     try {
-      // Create a new OpenAI client instance for this request
-      const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-        timeout: 60000, // 60 seconds timeout
-      })
-
       console.log("Calling OpenAI API to find ingredients for:", productName)
 
-      // Use a specific prompt asking for ingredients in the identified product
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a skincare ingredients expert. List ingredients accurately and concisely.",
-          },
-          {
-            role: "user",
-            content: `What ingredients are in ${productName}? Return ONLY the list of ingredients separated by commas. If you can't find the exact product, provide the most likely ingredients based on similar products from the same brand and line.`,
-          },
-        ],
-        max_tokens: 1000,
+      // Make a direct fetch call to the OpenAI API
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a skincare ingredients expert. List ingredients accurately and concisely.",
+            },
+            {
+              role: "user",
+              content: `What ingredients are in ${productName}? Return ONLY the list of ingredients separated by commas. If you can't find the exact product, provide the most likely ingredients based on similar products from the same brand and line.`,
+            },
+          ],
+          max_tokens: 1000,
+        }),
       })
 
-      const ingredientsText = completion.choices[0].message.content?.trim() || ""
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`OpenAI API error (${response.status}):`, errorText)
+        return NextResponse.json(
+          { error: `OpenAI API error: ${response.status} ${response.statusText}` },
+          { status: 500 },
+        )
+      }
+
+      const data = await response.json()
+      const ingredientsText = data.choices[0].message.content?.trim() || ""
       console.log("Ingredients text from OpenAI:", ingredientsText)
 
       const ingredientsList = ingredientsText
@@ -73,29 +75,17 @@ export async function POST(request: Request) {
 
       if (ingredientsList.length === 0) {
         console.error("No ingredients found in OpenAI response")
-        return new Response(JSON.stringify({ error: "Could not find ingredients for the product" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        })
+        return NextResponse.json({ error: "Could not find ingredients for the product" }, { status: 400 })
       }
 
       console.log("Returning ingredients list:", ingredientsList)
-      return new Response(JSON.stringify({ ingredients: ingredientsList }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ ingredients: ingredientsList })
     } catch (openaiError: any) {
       console.error("OpenAI API error:", openaiError)
-      return new Response(JSON.stringify({ error: `OpenAI API error: ${openaiError.message}` }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: `OpenAI API error: ${openaiError.message}` }, { status: 500 })
     }
   } catch (error: any) {
     console.error("Error finding ingredients:", error)
-    return new Response(JSON.stringify({ error: `Failed to find ingredients: ${error.message}` }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    })
+    return NextResponse.json({ error: `Failed to find ingredients: ${error.message}` }, { status: 500 })
   }
 }

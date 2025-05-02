@@ -247,9 +247,7 @@ export function ProductAnalyzer() {
               </div>
               <div className="flex-1 space-y-4">
                 <h3 className="text-lg font-medium text-purple-800">Step 1: Identify Product</h3>
-                <p className="text-gray-600 text-sm">
-                  First, we'll use ChatGPT to identify the skincare product in your photo.
-                </p>
+                <p className="text-gray-600 text-sm">First, we'll use ChatGPT to identify the product in your photo.</p>
                 <Button
                   onClick={handleIdentifyProduct}
                   disabled={isLoading || !isOnline}

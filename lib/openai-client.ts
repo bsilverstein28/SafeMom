@@ -4,8 +4,12 @@ import OpenAI from "openai"
 let openaiInstance: OpenAI | null = null
 
 export function getOpenAIClient() {
-  // In API routes, we're definitely on the server
-  // No need to check for window as API routes always run on the server
+  // Check if we're in a browser environment
+  if (typeof window !== "undefined") {
+    console.error("OpenAI client should not be initialized in browser environment")
+    return null
+  }
+
   if (!openaiInstance) {
     if (!process.env.OPENAI_API_KEY) {
       console.error("OpenAI API key not configured")
@@ -28,6 +32,11 @@ export function getOpenAIClient() {
 
 // Helper function to make a direct API call to the vision API
 export async function analyzeImageWithVisionAPI(imageUrl: string, prompt: string) {
+  // Check if we're in a browser environment
+  if (typeof window !== "undefined") {
+    throw new Error("Vision API should not be called from browser environment")
+  }
+
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OpenAI API key not configured")
   }
@@ -53,7 +62,7 @@ export async function analyzeImageWithVisionAPI(imageUrl: string, prompt: string
             },
             {
               type: "text",
-              text: prompt || "What skincare product is shown in this image? Provide ONLY the brand and product name.",
+              text: prompt || "What product is shown in this image? Provide ONLY the brand and product name.",
             },
           ],
         },

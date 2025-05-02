@@ -150,29 +150,37 @@ export async function findIngredients(productName: string) {
     // Use the API route for finding ingredients
     console.log("Calling find-ingredients API for:", productName)
 
-    const response = await fetch(`${getBaseUrl()}/api/find-ingredients`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ productName }),
-    })
+    // Make a direct fetch call to the API route
+    try {
+      // Use makeApiRequest helper to handle errors consistently
+      const { data, error, diagnostics } = await makeApiRequest({
+        endpoint: "/api/find-ingredients",
+        data: { productName },
+        method: "POST",
+      })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`API error (${response.status}):`, errorText)
-      return { error: `API error: ${response.status} ${response.statusText}` }
+      if (error) {
+        console.error("Error in findIngredients:", error)
+        if (diagnostics) {
+          console.error("Error diagnostics:", JSON.stringify(diagnostics, null, 2))
+        }
+        return {
+          error,
+          diagnostics,
+        }
+      }
+
+      if (!data || !data.ingredients || !Array.isArray(data.ingredients) || data.ingredients.length === 0) {
+        console.error("No ingredients returned from API")
+        return { error: "Could not find ingredients for the product" }
+      }
+
+      console.log("Found ingredients:", data.ingredients)
+      return { ingredients: data.ingredients }
+    } catch (fetchError: any) {
+      console.error("Error fetching from API:", fetchError)
+      return { error: `Failed to fetch from API: ${fetchError.message}` }
     }
-
-    const data = await response.json()
-
-    if (!data || !data.ingredients || !Array.isArray(data.ingredients) || data.ingredients.length === 0) {
-      console.error("No ingredients returned from API")
-      return { error: "Could not find ingredients for the product" }
-    }
-
-    console.log("Found ingredients:", data.ingredients)
-    return { ingredients: data.ingredients }
   } catch (error: any) {
     console.error("Error finding ingredients:", error)
     return { error: `Failed to find ingredients: ${error.message}` }
@@ -185,27 +193,33 @@ export async function analyzeIngredients(ingredients: string[]) {
     console.log("Analyzing ingredients for pregnancy safety:", ingredients)
 
     // Use the API route for analyzing ingredients
-    const response = await fetch(`${getBaseUrl()}/api/analyze-ingredients`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ ingredients }),
-    })
+    try {
+      // Use makeApiRequest helper to handle errors consistently
+      const { data, error, diagnostics } = await makeApiRequest({
+        endpoint: "/api/analyze-ingredients",
+        data: { ingredients },
+        method: "POST",
+      })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`API error (${response.status}):`, errorText)
-      return { error: `API error: ${response.status} ${response.statusText}` }
-    }
+      if (error) {
+        console.error("Error in analyzeIngredients:", error)
+        if (diagnostics) {
+          console.error("Error diagnostics:", JSON.stringify(diagnostics, null, 2))
+        }
+        return {
+          error,
+          diagnostics,
+        }
+      }
 
-    const data = await response.json()
-    console.log("Parsed safety results:", data)
-
-    return {
-      harmfulIngredients: data?.harmfulIngredients || [],
-      isSafe: data?.isSafe,
-      parsingError: data?.parsingError,
+      return {
+        harmfulIngredients: data?.harmfulIngredients || [],
+        isSafe: data?.isSafe,
+        parsingError: data?.parsingError,
+      }
+    } catch (fetchError: any) {
+      console.error("Error fetching from API:", fetchError)
+      return { error: `Failed to fetch from API: ${fetchError.message}` }
     }
   } catch (error: any) {
     console.error("Error analyzing ingredients:", error)

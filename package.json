@@ -59,8 +59,8 @@
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
     "ws": "latest",
-    "openai": "latest",
-    "@vercel/blob": "latest"
+    "@vercel/blob": "latest",
+    "openai": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

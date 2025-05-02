@@ -1,4 +1,4 @@
-import OpenAI from "openai"
+import { NextResponse } from "next/server"
 
 // Explicitly set the runtime to nodejs
 export const runtime = "nodejs"
@@ -12,67 +12,69 @@ export async function POST(request: Request) {
       ingredients = body.ingredients
     } catch (parseError) {
       console.error("Error parsing request body:", parseError)
-      return new Response(JSON.stringify({ error: "Invalid request body" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
 
     if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
-      return new Response(JSON.stringify({ error: "No ingredients provided" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: "No ingredients provided" }, { status: 400 })
     }
 
     // Initialize OpenAI client directly in the API route
     if (!process.env.OPENAI_API_KEY) {
       console.error("OpenAI API key not configured")
-      return new Response(JSON.stringify({ error: "OpenAI API key not configured" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 })
     }
 
     try {
-      // Create a new OpenAI client instance for this request
-      const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-        timeout: 60000, // 60 seconds timeout
-      })
-
-      // For text-only queries, we can still use gpt-4o
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o", // This is fine for text-only
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a pregnancy safety expert for skincare ingredients. Provide accurate analysis in JSON format.",
-          },
-          {
-            role: "user",
-            content: `Analyze these skincare ingredients for safety during pregnancy:
-            ${ingredients.join(", ")}
-            
-            For each potentially harmful ingredient, explain why it's concerning during pregnancy.
-            
-            You MUST respond with ONLY a valid JSON object using this exact structure:
+      // Make a direct fetch call to the OpenAI API
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
             {
-              "harmfulIngredients": [
-                {"name": "ingredient name", "reason": "why it's harmful during pregnancy"}
-              ],
-              "isSafe": boolean
-            }
-            
-            If none are harmful, return an empty array for harmfulIngredients and set isSafe to true.
-            Do not include any text before or after the JSON.`,
-          },
-        ],
-        max_tokens: 1000,
+              role: "system",
+              content:
+                "You are a pregnancy safety expert for skincare ingredients. Provide accurate analysis in JSON format.",
+            },
+            {
+              role: "user",
+              content: `Analyze these skincare ingredients for safety during pregnancy:
+              ${ingredients.join(", ")}
+              
+              For each potentially harmful ingredient, explain why it's concerning during pregnancy.
+              
+              You MUST respond with ONLY a valid JSON object using this exact structure:
+              {
+                "harmfulIngredients": [
+                  {"name": "ingredient name", "reason": "why it's harmful during pregnancy"}
+                ],
+                "isSafe": boolean
+              }
+              
+              If none are harmful, return an empty array for harmfulIngredients and set isSafe to true.
+              Do not include any text before or after the JSON.`,
+            },
+          ],
+          max_tokens: 1000,
+        }),
       })
 
-      const safetyAnalysisText = completion.choices[0].message.content?.trim() || ""
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`OpenAI API error (${response.status}):`, errorText)
+        return NextResponse.json(
+          { error: `OpenAI API error: ${response.status} ${response.statusText}` },
+          { status: 500 },
+        )
+      }
+
+      const data = await response.json()
+      const safetyAnalysisText = data.choices[0].message.content?.trim() || ""
 
       // Try to parse the JSON response, with fallback for malformed JSON
       let safetyResults
@@ -99,29 +101,17 @@ export async function POST(request: Request) {
         }
       }
 
-      return new Response(
-        JSON.stringify({
-          harmfulIngredients: safetyResults.harmfulIngredients || [],
-          isSafe: safetyResults.isSafe,
-          parsingError: safetyResults.parsingError,
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        },
-      )
+      return NextResponse.json({
+        harmfulIngredients: safetyResults.harmfulIngredients || [],
+        isSafe: safetyResults.isSafe,
+        parsingError: safetyResults.parsingError,
+      })
     } catch (openaiError: any) {
       console.error("OpenAI API error:", openaiError)
-      return new Response(JSON.stringify({ error: `OpenAI API error: ${openaiError.message}` }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: `OpenAI API error: ${openaiError.message}` }, { status: 500 })
     }
   } catch (error: any) {
     console.error("Error analyzing ingredients:", error)
-    return new Response(JSON.stringify({ error: `Failed to analyze ingredients: ${error.message}` }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    })
+    return NextResponse.json({ error: `Failed to analyze ingredients: ${error.message}` }, { status: 500 })
   }
 }

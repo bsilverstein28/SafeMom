@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import OpenAI from "openai"
 
 // Drop Edge runtime, use Node.js for higher size limit
 export const runtime = "nodejs"
@@ -7,23 +6,6 @@ export const runtime = "nodejs"
 // Raise body-parser cap to 10MB
 export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } },
-}
-
-// Create a singleton instance of the OpenAI client
-let openaiInstance: OpenAI | null = null
-
-function getOpenAIClient() {
-  if (!openaiInstance) {
-    if (!process.env.OPENAI_API_KEY) {
-      console.error("OpenAI API key not configured")
-      return null
-    }
-
-    openaiInstance = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    })
-  }
-  return openaiInstance
 }
 
 export async function POST(request: Request) {
@@ -48,11 +30,10 @@ export async function POST(request: Request) {
 
     console.log("Processing image URL:", imageUrl.substring(0, 50) + "...")
 
-    // Get the OpenAI client
-    const openai = getOpenAIClient()
-    if (!openai) {
-      console.error("OpenAI client initialization failed")
-      return NextResponse.json({ error: "OpenAI client initialization failed" }, { status: 500 })
+    // Check for OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("OpenAI API key not configured")
+      return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 })
     }
 
     try {
@@ -64,32 +45,53 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Invalid image URL format" }, { status: 400 })
       }
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a skincare product identification expert. Identify the exact brand and product name from images.",
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "What skincare product is shown in this image? Provide ONLY the brand and product name, nothing else.",
-              },
-              {
-                type: "image_url",
-                image_url: { url: imageUrl, detail: "auto" },
-              },
-            ],
-          },
-        ],
-        max_tokens: 300,
+      // Make a direct fetch call to the OpenAI API
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a product identification expert. Identify the exact brand and product name from images.",
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "What product is shown in this image? Provide ONLY the brand and product name, nothing else.",
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: imageUrl, detail: "auto" },
+                },
+              ],
+            },
+          ],
+          max_tokens: 300,
+        }),
       })
 
-      const productName = completion.choices[0].message.content?.trim()
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`OpenAI API error (${response.status}):`, errorText)
+        return NextResponse.json(
+          {
+            error: `OpenAI API error: ${response.status} ${response.statusText}`,
+            details: errorText,
+          },
+          { status: 500 },
+        )
+      }
+
+      const data = await response.json()
+      const productName = data.choices[0].message.content?.trim()
       console.log("Product identified:", productName)
 
       if (!productName) {

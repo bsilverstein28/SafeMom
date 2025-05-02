@@ -1,3 +1,5 @@
+import { NextResponse } from "next/server"
+
 // Drop Edge runtime, use Node.js for higher size limit
 export const runtime = "nodejs"
 
@@ -21,10 +23,7 @@ export async function POST(req: Request) {
       console.log("Request body parsed successfully")
     } catch (parseError) {
       console.error("Error parsing request body:", parseError)
-      return new Response(JSON.stringify({ error: "Invalid request body" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
 
     const { base64Image } = body
@@ -32,10 +31,7 @@ export async function POST(req: Request) {
     if (!base64Image) {
       console.error("No base64Image provided in request body")
       console.log("Request body keys:", Object.keys(body))
-      return new Response(JSON.stringify({ error: "No base64Image provided" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: "No base64Image provided" }, { status: 400 })
     }
 
     console.log("Base64 image received (length):", base64Image.length)
@@ -62,7 +58,7 @@ export async function POST(req: Request) {
                 },
                 {
                   type: "text",
-                  text: "What skincare product is shown in this image? Provide ONLY the brand and product name.",
+                  text: "What product is shown in this image? Provide ONLY the brand and product name.",
                 },
               ],
             },
@@ -76,10 +72,7 @@ export async function POST(req: Request) {
 
       if (!response.ok) {
         console.error("OpenAI API error:", data)
-        return new Response(JSON.stringify({ error: "Error from OpenAI", details: data }), {
-          status: response.status,
-          headers: { "Content-Type": "application/json" },
-        })
+        return NextResponse.json({ error: "Error from OpenAI", details: data }, { status: response.status })
       }
 
       // Extract the product name from the response
@@ -90,25 +83,16 @@ export async function POST(req: Request) {
       }
 
       // Return both the raw response and the extracted product name
-      return new Response(JSON.stringify({ ...data, product: productName }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ ...data, product: productName })
     } catch (openaiError: any) {
       console.error("OpenAI API error:", openaiError)
       console.error("Error stack:", openaiError.stack)
 
-      return new Response(JSON.stringify({ error: `OpenAI API error: ${openaiError.message}` }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: `OpenAI API error: ${openaiError.message}` }, { status: 500 })
     }
   } catch (error: any) {
     console.error("Error in analyze-base64 API:", error)
     console.error("Error stack:", error.stack)
-    return new Response(JSON.stringify({ error: `Failed to analyze image: ${error.message}` }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    })
+    return NextResponse.json({ error: `Failed to analyze image: ${error.message}` }, { status: 500 })
   }
 }
