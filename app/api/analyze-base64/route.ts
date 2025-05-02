@@ -36,12 +36,20 @@ export async function POST(req: Request) {
 
     console.log("Base64 image received (length):", base64Image.length)
 
+    // Access the API key securely
+    const apiKey = process.env.OPENAI_API_KEY
+
+    if (!apiKey) {
+      console.error("API key is missing")
+      return NextResponse.json({ error: "Missing API Key" }, { status: 500 })
+    }
+
     try {
       // Construct the request exactly as shown in the example
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

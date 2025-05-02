@@ -23,10 +23,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No product name provided" }, { status: 400 })
     }
 
-    // Initialize OpenAI client directly in the API route
-    if (!process.env.OPENAI_API_KEY) {
-      console.error("OpenAI API key not configured")
-      return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 })
+    // Access the API key securely
+    const apiKey = process.env.OPENAI_API_KEY
+
+    if (!apiKey) {
+      console.error("API key is missing")
+      return NextResponse.json({ error: "Missing API Key" }, { status: 500 })
     }
 
     try {
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

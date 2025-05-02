@@ -51,8 +51,12 @@ export async function POST(request: Request) {
 
       // Now try to identify the product using the OpenAI Vision API
       try {
-        if (!process.env.OPENAI_API_KEY) {
-          throw new Error("OpenAI API key not configured")
+        // Access the API key securely
+        const apiKey = process.env.OPENAI_API_KEY
+
+        if (!apiKey) {
+          console.error("API key is missing")
+          return NextResponse.json({ error: "Missing API Key" }, { status: 500 })
         }
 
         console.log("Identifying product from uploaded image...")
@@ -61,7 +65,7 @@ export async function POST(request: Request) {
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({

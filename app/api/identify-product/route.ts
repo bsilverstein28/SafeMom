@@ -30,10 +30,12 @@ export async function POST(request: Request) {
 
     console.log("Processing image URL:", imageUrl.substring(0, 50) + "...")
 
-    // Check for OpenAI API key
-    if (!process.env.OPENAI_API_KEY) {
-      console.error("OpenAI API key not configured")
-      return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 })
+    // Access the API key securely
+    const apiKey = process.env.OPENAI_API_KEY
+
+    if (!apiKey) {
+      console.error("API key is missing")
+      return NextResponse.json({ error: "Missing API Key" }, { status: 500 })
     }
 
     try {
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
