@@ -50,15 +50,25 @@ export function ProductAnalyzer() {
     }
   }, [])
 
-  const handleImageUpload = (blobUrl: string, preview: string) => {
+  const handleImageUpload = (blobUrl: string, preview: string, detectedProduct?: string) => {
     setImageUrl(blobUrl)
     setPreviewUrl(preview)
-    setCurrentStep(1)
+
+    // If we already have a product name from the direct analysis, use it and skip to step 2
+    if (detectedProduct) {
+      setProductName(detectedProduct)
+      setCurrentStep(2)
+    } else {
+      setCurrentStep(1)
+    }
+
     resetResults()
   }
 
   const resetResults = () => {
-    setProductName("")
+    if (!productName) {
+      setProductName("")
+    }
     setIngredients([])
     setSafetyResults(null)
     setError(null)
@@ -69,6 +79,7 @@ export function ProductAnalyzer() {
     setImageUrl(null)
     setPreviewUrl(null)
     setCurrentStep(1)
+    setProductName("")
     resetResults()
   }
 

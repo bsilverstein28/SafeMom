@@ -35,8 +35,9 @@ export async function POST(request: Request) {
     }
 
     try {
+      // For text-only queries, we can still use gpt-4o
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-4o", // This is fine for text-only
         messages: [
           {
             role: "system",

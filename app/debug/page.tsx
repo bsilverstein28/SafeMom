@@ -32,6 +32,31 @@ export default function DebugPage() {
           </section>
 
           <section>
+            <h2 className="text-xl font-semibold text-purple-700 mb-4">Testing Tools</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-purple-200">
+                <h3 className="font-medium text-purple-800 mb-2">Base64 Image Test</h3>
+                <p className="text-gray-600 mb-4 text-sm">
+                  Test the direct base64 image upload and analysis with the OpenAI Vision API.
+                </p>
+                <Button asChild className="bg-purple-600 hover:bg-purple-700">
+                  <Link href="/debug/base64-test">Open Base64 Tester</Link>
+                </Button>
+              </div>
+
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-purple-200">
+                <h3 className="font-medium text-purple-800 mb-2">Secure Server-Side Test</h3>
+                <p className="text-gray-600 mb-4 text-sm">
+                  Test the secure server-side image analysis using Server Actions.
+                </p>
+                <Button asChild className="bg-purple-600 hover:bg-purple-700">
+                  <Link href="/debug/secure-test">Open Secure Tester</Link>
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-xl font-semibold text-purple-700 mb-4">Environment Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white p-4 rounded-lg shadow-sm border border-purple-200">

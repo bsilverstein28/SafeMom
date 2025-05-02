@@ -1,4 +1,3 @@
-import OpenAI from "openai"
 import { put } from "@vercel/blob"
 
 // Drop Edge runtime, use Node.js for higher size limit
@@ -11,6 +10,16 @@ export const config = {
       sizeLimit: "10mb",
     },
   },
+}
+
+// Helper function to convert file to base64
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = (error) => reject(error)
+  })
 }
 
 export async function POST(req: Request) {
@@ -41,58 +50,143 @@ export async function POST(req: Request) {
     console.log(`Processing image: ${file.name}, size: ${file.size} bytes, type: ${file.type}`)
 
     try {
-      // Upload to Vercel Blob to get a stable URL
+      // Convert the file to base64
+      const base64DataUrl = await fileToBase64(file)
+      const base64Image = base64DataUrl.split(",")[1] // Remove the data:image/jpeg;base64, prefix
+      console.log("Image converted to base64 (length):", base64Image.length)
+
+      // Also upload to Vercel Blob as a backup approach
       const blob = await put(`skincare-products/${Date.now()}-${file.name}`, file, {
         access: "public",
       })
+      console.log(`File also uploaded to Blob. URL: ${blob.url}`)
 
-      console.log(`File uploaded successfully. URL: ${blob.url}`)
+      // Make a direct fetch call to the OpenAI API using the exact structure from the example
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4-vision-preview",
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:image/jpeg;base64,${base64Image}`,
+                  },
+                },
+                {
+                  type: "text",
+                  text: "What skincare product is shown in this image? Provide ONLY the brand and product name.",
+                },
+              ],
+            },
+          ],
+          max_tokens: 1000,
+        }),
+      })
 
-      // Initialize OpenAI client
-      if (!process.env.OPENAI_API_KEY) {
-        console.error("OpenAI API key not configured")
-        return new Response(JSON.stringify({ error: "OpenAI API key not configured" }), {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        })
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`OpenAI API error (${response.status}):`, errorText)
+
+        // If base64 approach fails, try with the blob URL as fallback
+        if (response.status === 400) {
+          console.log("Trying fallback with blob URL...")
+
+          const fallbackResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-4-vision-preview",
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "image_url",
+                      image_url: {
+                        url: blob.url, // Using the blob URL instead
+                      },
+                    },
+                    {
+                      type: "text",
+                      text: "What skincare product is shown in this image? Provide ONLY the brand and product name.",
+                    },
+                  ],
+                },
+              ],
+              max_tokens: 1000,
+            }),
+          })
+
+          if (!fallbackResponse.ok) {
+            const fallbackErrorText = await fallbackResponse.text()
+            console.error(`Fallback OpenAI API error (${fallbackResponse.status}):`, fallbackErrorText)
+            return new Response(
+              JSON.stringify({
+                error: `OpenAI API error: ${fallbackResponse.status} ${fallbackResponse.statusText}`,
+                details: fallbackErrorText,
+              }),
+              {
+                status: 500,
+                headers: { "Content-Type": "application/json" },
+              },
+            )
+          }
+
+          const fallbackResult = await fallbackResponse.json()
+          let productName = "Unknown product"
+          if (
+            fallbackResult &&
+            fallbackResult.choices &&
+            fallbackResult.choices[0] &&
+            fallbackResult.choices[0].message
+          ) {
+            productName = fallbackResult.choices[0].message.content || "Unknown product"
+          }
+
+          console.log("Product identified (fallback):", productName)
+
+          return new Response(
+            JSON.stringify({
+              product: productName,
+              imageUrl: blob.url,
+              note: "Used fallback method with blob URL",
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          )
+        }
+
+        return new Response(
+          JSON.stringify({
+            error: `OpenAI API error: ${response.status} ${response.statusText}`,
+            details: errorText,
+          }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          },
+        )
       }
 
-      const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-        dangerouslyAllowBrowser: true,
-      })
+      const result = await response.json()
 
-      // Use the blob URL for the OpenAI API
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a skincare product identification expert.",
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "What skincare product is shown in this image? Provide ONLY the brand and product name.",
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: blob.url,
-                },
-              },
-            ],
-          },
-        ],
-        max_tokens: 300,
-      })
-
-      // Safely extract the product name
+      // Extract the product name from the response
       let productName = "Unknown product"
-      if (completion && completion.choices && completion.choices[0] && completion.choices[0].message) {
-        productName = completion.choices[0].message.content || "Unknown product"
+      if (result && result.choices && result.choices[0] && result.choices[0].message) {
+        productName = result.choices[0].message.content || "Unknown product"
       }
 
       console.log("Product identified:", productName)
@@ -100,7 +194,7 @@ export async function POST(req: Request) {
       return new Response(
         JSON.stringify({
           product: productName,
-          imageUrl: blob.url,
+          imageUrl: blob.url, // Return the blob URL for reference in the UI
         }),
         {
           status: 200,

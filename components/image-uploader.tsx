@@ -4,10 +4,10 @@ import type React from "react"
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Upload, Camera, Loader2 } from "lucide-react"
-import { getBaseUrl } from "@/lib/api-utils"
+import { analyzeImageDirect } from "@/actions/analyze-product"
 
 interface ImageUploaderProps {
-  onImageSelected: (imageUrl: string, previewUrl: string) => void
+  onImageSelected: (imageUrl: string, previewUrl: string, productName?: string) => void
 }
 
 export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
@@ -40,6 +40,23 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
     }
   }
 
+  // Convert file to base64 exactly as specified
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => {
+        if (!reader.result) {
+          reject(new Error("Failed to read file"))
+          return
+        }
+        const base64 = (reader.result as string).split(",")[1] // strip the prefix
+        resolve(base64)
+      }
+      reader.onerror = (error) => reject(error)
+    })
+  }
+
   const handleFile = async (file: File) => {
     if (!file.type.match("image.*")) {
       setUploadError("Please select an image file")
@@ -49,53 +66,53 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
     setIsUploading(true)
     setUploadError(null)
 
+    let previewUrl = "" // Declare previewUrl here
+
     try {
-      // Create a local preview
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        const previewUrl = e.target?.result as string
+      // Create a preview URL for display
+      previewUrl = URL.createObjectURL(file)
 
-        try {
-          // Try the new direct upload endpoint first
-          const formData = new FormData()
-          formData.append("file", file)
+      // Convert file to base64
+      const base64Image = await fileToBase64(file)
+      console.log("Image converted to base64 (length):", base64Image.length)
 
-          const response = await fetch(`${getBaseUrl()}/api/analyze-image`, {
-            method: "POST",
-            body: formData,
-          })
+      // Use the server action to analyze the image
+      // This ensures the API call is made server-side
+      const result = await analyzeImageDirect(base64Image)
 
-          if (response.ok) {
-            const result = await response.json()
-            if (result.imageUrl) {
-              console.log("Image analyzed successfully:", result)
-              onImageSelected(result.imageUrl, previewUrl)
-              return
-            }
-          }
-
-          // Fallback to the original upload method
-          uploadToBlob(file, previewUrl)
-        } catch (error) {
-          console.error("Error with direct upload:", error)
-          // Fallback to the original upload method
-          uploadToBlob(file, previewUrl)
-        }
+      if (result.error) {
+        console.error("Error analyzing image:", result.error)
+        setUploadError(result.error)
+        // Fall back to blob upload if analysis fails
+        uploadToBlob(file, previewUrl)
+        return
       }
-      reader.readAsDataURL(file)
-    } catch (error) {
+
+      if (result.product) {
+        console.log("Product identified:", result.product)
+        // Pass the result to the parent component
+        onImageSelected(previewUrl, previewUrl, result.product)
+      } else {
+        // Fall back to blob upload if no product was identified
+        uploadToBlob(file, previewUrl)
+      }
+    } catch (error: any) {
       console.error("Error handling file:", error)
-      setUploadError("Failed to process the image")
+      setUploadError(error.message || "Failed to process the image")
+      // Fall back to blob upload
+      uploadToBlob(file, previewUrl)
+    } finally {
       setIsUploading(false)
     }
   }
 
   const uploadToBlob = async (file: File, previewUrl: string) => {
     try {
+      console.log("Falling back to blob upload...")
       const formData = new FormData()
       formData.append("file", file)
 
-      const response = await fetch(`${getBaseUrl()}/api/upload-image`, {
+      const response = await fetch("/api/upload-image", {
         method: "POST",
         body: formData,
       })
@@ -130,8 +147,6 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
     } catch (error: any) {
       console.error("Error uploading to Blob:", error)
       setUploadError(error.message || "Failed to upload the image")
-    } finally {
-      setIsUploading(false)
     }
   }
 

@@ -12,7 +12,7 @@ export const config = {
 
 export async function POST(req: Request) {
   try {
-    console.log("Received request to /api/analyze")
+    console.log("Received request to /api/analyze-base64")
 
     // Parse the request body
     let body
@@ -82,15 +82,7 @@ export async function POST(req: Request) {
         })
       }
 
-      // Extract the product name from the response
-      let productName = "Unknown product"
-      if (data && data.choices && data.choices[0] && data.choices[0].message) {
-        productName = data.choices[0].message.content || "Unknown product"
-      }
-
-      console.log("Product identified:", productName)
-
-      return new Response(JSON.stringify({ product: productName, rawResponse: data }), {
+      return new Response(JSON.stringify(data), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       })
@@ -104,7 +96,7 @@ export async function POST(req: Request) {
       })
     }
   } catch (error: any) {
-    console.error("Error in analyze API:", error)
+    console.error("Error in analyze-base64 API:", error)
     console.error("Error stack:", error.stack)
     return new Response(JSON.stringify({ error: `Failed to analyze image: ${error.message}` }), {
       status: 500,

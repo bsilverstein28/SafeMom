@@ -1,6 +1,25 @@
 "use server"
 
 import { makeApiRequest, getBaseUrl } from "@/lib/api-utils"
+import { analyzeImageWithVisionAPI } from "@/lib/openai-client"
+
+// Helper function to convert a URL to base64
+async function urlToBase64(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.error(`Failed to fetch image from URL: ${url}`)
+      return null
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    return buffer.toString("base64")
+  } catch (error) {
+    console.error("Error converting URL to base64:", error)
+    return null
+  }
+}
 
 // Step 1: Identify the product from the image
 export async function identifyProduct(imageUrl: string) {
@@ -16,38 +35,61 @@ export async function identifyProduct(imageUrl: string) {
 
     console.log("Image URL length:", imageUrl.length)
 
-    // First, try the direct approach
-    try {
-      console.log("Trying direct API call...")
+    // Try to convert the image URL to base64 if it's a remote URL
+    let base64Image = null
+    if (imageUrl.startsWith("http")) {
+      console.log("Converting remote URL to base64...")
+      base64Image = await urlToBase64(imageUrl)
 
-      // Make a direct fetch call to the API
-      const response = await fetch(`${getBaseUrl()}/api/analyze`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ imageUrl }),
-      })
+      if (base64Image) {
+        console.log("Successfully converted image to base64")
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.product) {
-          console.log("Direct API call successful, product identified:", data.product)
-          return { product: data.product }
+        // Make a server-side API call directly
+        try {
+          const result = await analyzeImageWithVisionAPI(
+            `data:image/jpeg;base64,${base64Image}`,
+            "What skincare product is shown in this image? Provide ONLY the brand and product name.",
+          )
+
+          if (result.choices && result.choices[0] && result.choices[0].message) {
+            const productName = result.choices[0].message.content
+            console.log("Product identified using base64 approach:", productName)
+            return { product: productName }
+          }
+        } catch (base64Error) {
+          console.error("Error with direct API call:", base64Error)
+          // Continue to fallback approach
         }
-      } else {
-        console.log("Direct API call failed, status:", response.status)
       }
-    } catch (directError) {
-      console.error("Error with direct API call:", directError)
-      // Continue to fallback approach
     }
 
-    // Fallback to the makeApiRequest helper
-    console.log("Falling back to makeApiRequest helper...")
+    // If the image is already a data URL (base64)
+    if (imageUrl.startsWith("data:image")) {
+      console.log("Image is already a data URL")
+
+      try {
+        const result = await analyzeImageWithVisionAPI(
+          imageUrl,
+          "What skincare product is shown in this image? Provide ONLY the brand and product name.",
+        )
+
+        if (result.choices && result.choices[0] && result.choices[0].message) {
+          const productName = result.choices[0].message.content
+          console.log("Product identified using data URL approach:", productName)
+          return { product: productName }
+        }
+      } catch (dataUrlError) {
+        console.error("Error with data URL API call:", dataUrlError)
+        // Continue to fallback approach
+      }
+    }
+
+    // Fallback to the API route approach
+    console.log("Falling back to API route approach...")
     const { data, error, diagnostics } = await makeApiRequest({
-      endpoint: "/api/analyze",
+      endpoint: "/api/analyze-image",
       data: { imageUrl },
+      method: "POST",
     })
 
     // Check for errors and return diagnostics if available
@@ -148,5 +190,43 @@ export async function analyzeIngredients(ingredients: string[]) {
   } catch (error: any) {
     console.error("Error analyzing ingredients:", error)
     return { error: `Failed to analyze ingredients: ${error.message}` }
+  }
+}
+
+// Direct server action for image analysis
+export async function analyzeImageDirect(base64Image: string) {
+  try {
+    console.log("Analyzing image directly from server action")
+
+    if (!base64Image) {
+      return { error: "No image data provided" }
+    }
+
+    // Ensure we're on the server
+    if (typeof window !== "undefined") {
+      return { error: "This function can only be called from the server" }
+    }
+
+    try {
+      // Make the API call directly from the server
+      const result = await analyzeImageWithVisionAPI(
+        `data:image/jpeg;base64,${base64Image}`,
+        "What skincare product is shown in this image? Provide ONLY the brand and product name.",
+      )
+
+      if (result.choices && result.choices[0] && result.choices[0].message) {
+        const productName = result.choices[0].message.content
+        console.log("Product identified:", productName)
+        return { product: productName }
+      } else {
+        return { error: "Could not extract product name from API response" }
+      }
+    } catch (apiError: any) {
+      console.error("API error:", apiError)
+      return { error: `API error: ${apiError.message}` }
+    }
+  } catch (error: any) {
+    console.error("Error in analyzeImageDirect:", error)
+    return { error: `Failed to analyze image: ${error.message}` }
   }
 }
