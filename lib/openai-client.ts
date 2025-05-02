@@ -32,13 +32,7 @@ export function getOpenAIClient() {
 }
 
 // Helper function to make a direct API call to the vision API
-// Mark this function as server-only
 export async function analyzeImageWithVisionAPI(imageUrl: string, prompt: string) {
-  // Check if we're running on the client side
-  if (typeof window !== "undefined") {
-    throw new Error("This function can only be called from the server")
-  }
-
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OpenAI API key not configured")
   }
@@ -51,7 +45,7 @@ export async function analyzeImageWithVisionAPI(imageUrl: string, prompt: string
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4-vision-preview",
+      model: "gpt-4o",
       messages: [
         {
           role: "user",

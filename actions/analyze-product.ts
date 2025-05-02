@@ -44,20 +44,28 @@ export async function identifyProduct(imageUrl: string) {
       if (base64Image) {
         console.log("Successfully converted image to base64")
 
-        // Make a server-side API call directly
+        // Make a direct fetch call to the analyze-base64 endpoint
         try {
-          const result = await analyzeImageWithVisionAPI(
-            `data:image/jpeg;base64,${base64Image}`,
-            "What skincare product is shown in this image? Provide ONLY the brand and product name.",
-          )
+          const response = await fetch(`${getBaseUrl()}/api/analyze-base64`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ base64Image }),
+          })
 
-          if (result.choices && result.choices[0] && result.choices[0].message) {
-            const productName = result.choices[0].message.content
-            console.log("Product identified using base64 approach:", productName)
-            return { product: productName }
+          if (response.ok) {
+            const data = await response.json()
+            if (data.choices && data.choices[0] && data.choices[0].message) {
+              const productName = data.choices[0].message.content
+              console.log("Product identified using base64 approach:", productName)
+              return { product: productName }
+            }
+          } else {
+            console.log("Base64 approach failed, status:", response.status)
           }
         } catch (base64Error) {
-          console.error("Error with direct API call:", base64Error)
+          console.error("Error with base64 API call:", base64Error)
           // Continue to fallback approach
         }
       }
@@ -67,29 +75,40 @@ export async function identifyProduct(imageUrl: string) {
     if (imageUrl.startsWith("data:image")) {
       console.log("Image is already a data URL")
 
-      try {
-        const result = await analyzeImageWithVisionAPI(
-          imageUrl,
-          "What skincare product is shown in this image? Provide ONLY the brand and product name.",
-        )
+      // Extract the base64 part
+      const base64Part = imageUrl.split(",")[1]
+      if (base64Part) {
+        try {
+          const response = await fetch(`${getBaseUrl()}/api/analyze-base64`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ base64Image: base64Part }),
+          })
 
-        if (result.choices && result.choices[0] && result.choices[0].message) {
-          const productName = result.choices[0].message.content
-          console.log("Product identified using data URL approach:", productName)
-          return { product: productName }
+          if (response.ok) {
+            const data = await response.json()
+            if (data.choices && data.choices[0] && data.choices[0].message) {
+              const productName = data.choices[0].message.content
+              console.log("Product identified using data URL approach:", productName)
+              return { product: productName }
+            }
+          } else {
+            console.log("Data URL approach failed, status:", response.status)
+          }
+        } catch (dataUrlError) {
+          console.error("Error with data URL API call:", dataUrlError)
+          // Continue to fallback approach
         }
-      } catch (dataUrlError) {
-        console.error("Error with data URL API call:", dataUrlError)
-        // Continue to fallback approach
       }
     }
 
-    // Fallback to the API route approach
-    console.log("Falling back to API route approach...")
+    // Fallback to the original approach
+    console.log("Falling back to original approach...")
     const { data, error, diagnostics } = await makeApiRequest({
-      endpoint: "/api/analyze-image",
+      endpoint: "/api/analyze",
       data: { imageUrl },
-      method: "POST",
     })
 
     // Check for errors and return diagnostics if available
@@ -193,18 +212,15 @@ export async function analyzeIngredients(ingredients: string[]) {
   }
 }
 
-// Direct server action for image analysis
+// Direct server action for image analysis - properly exported for client use
 export async function analyzeImageDirect(base64Image: string) {
+  "use server"
+
   try {
     console.log("Analyzing image directly from server action")
 
     if (!base64Image) {
       return { error: "No image data provided" }
-    }
-
-    // Ensure we're on the server
-    if (typeof window !== "undefined") {
-      return { error: "This function can only be called from the server" }
     }
 
     try {

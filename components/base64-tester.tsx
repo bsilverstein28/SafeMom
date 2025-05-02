@@ -6,7 +6,6 @@ import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, Upload } from "lucide-react"
-import { analyzeImageDirect } from "@/actions/analyze-product"
 
 export function Base64Tester() {
   const [isLoading, setIsLoading] = useState(false)
@@ -58,18 +57,26 @@ export function Base64Tester() {
 
         // Prepare request data for display
         setRequestData({
-          method: "Server Action",
-          action: "analyzeImageDirect",
+          endpoint: "/api/analyze-base64",
+          method: "POST",
           base64ImageLength: base64Image.length,
         })
 
-        // Use the server action to analyze the image
-        const result = await analyzeImageDirect(base64Image)
-        setResult(result)
+        // Use the API route instead of the server action directly
+        const response = await fetch("/api/analyze-base64", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ base64Image }),
+        })
 
-        if (result.error) {
-          setError(result.error)
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`)
         }
+
+        const data = await response.json()
+        setResult(data)
       } catch (error: any) {
         console.error("Error:", error)
         setError(error.message || "An error occurred")
@@ -88,7 +95,7 @@ export function Base64Tester() {
         <div className="space-y-4">
           <div className="flex flex-col gap-4">
             <p className="text-sm text-purple-700">
-              This test uses a secure server action to analyze images. The OpenAI API call is made entirely server-side.
+              This test uses a secure API route to analyze images. The OpenAI API call is made entirely server-side.
             </p>
 
             <input type="file" ref={fileInputRef} onChange={handleFileInput} accept="image/*" className="hidden" />

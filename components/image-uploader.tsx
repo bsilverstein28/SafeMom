@@ -4,7 +4,6 @@ import type React from "react"
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Upload, Camera, Loader2 } from "lucide-react"
-import { analyzeImageDirect } from "@/actions/analyze-product"
 
 interface ImageUploaderProps {
   onImageSelected: (imageUrl: string, previewUrl: string, productName?: string) => void
@@ -66,41 +65,51 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
     setIsUploading(true)
     setUploadError(null)
 
-    let previewUrl = "" // Declare previewUrl here
-
     try {
       // Create a preview URL for display
-      previewUrl = URL.createObjectURL(file)
+      const previewUrl = URL.createObjectURL(file)
 
       // Convert file to base64
       const base64Image = await fileToBase64(file)
       console.log("Image converted to base64 (length):", base64Image.length)
 
-      // Use the server action to analyze the image
-      // This ensures the API call is made server-side
-      const result = await analyzeImageDirect(base64Image)
+      // Instead of using the server action directly, use the API route
+      try {
+        const response = await fetch("/api/analyze-base64", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ base64Image }),
+        })
 
-      if (result.error) {
-        console.error("Error analyzing image:", result.error)
-        setUploadError(result.error)
-        // Fall back to blob upload if analysis fails
-        uploadToBlob(file, previewUrl)
-        return
-      }
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`)
+        }
 
-      if (result.product) {
-        console.log("Product identified:", result.product)
-        // Pass the result to the parent component
-        onImageSelected(previewUrl, previewUrl, result.product)
-      } else {
-        // Fall back to blob upload if no product was identified
+        const data = await response.json()
+
+        // Extract the product name from the OpenAI response
+        let productName = "Unknown product"
+        if (data && data.choices && data.choices[0] && data.choices[0].message) {
+          productName = data.choices[0].message.content || "Unknown product"
+        }
+
+        console.log("Product identified:", productName)
+        onImageSelected(previewUrl, previewUrl, productName)
+      } catch (apiError: any) {
+        console.error("Error with API call:", apiError)
+        // Fall back to blob upload
         uploadToBlob(file, previewUrl)
       }
     } catch (error: any) {
       console.error("Error handling file:", error)
       setUploadError(error.message || "Failed to process the image")
-      // Fall back to blob upload
-      uploadToBlob(file, previewUrl)
+
+      // If we have a preview URL, try the blob upload as fallback
+      if (error.previewUrl) {
+        uploadToBlob(file, error.previewUrl)
+      }
     } finally {
       setIsUploading(false)
     }
