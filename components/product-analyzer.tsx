@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ImageUploader } from "@/components/image-uploader"
 import { AnalysisResults } from "@/components/analysis-results"
 import { identifyProduct, findIngredients, analyzeIngredients } from "@/actions/analyze-product"
-import { AlertCircle, ArrowRight, CheckCircle, Loader2 } from "lucide-react"
+import { AlertCircle, ArrowRight, CheckCircle, Loader2, WifiOff } from "lucide-react"
 import { StepIndicator } from "@/components/step-indicator"
 
 type AnalysisStep = 1 | 2 | 3 | 4 // 4 is the results step
@@ -18,6 +18,7 @@ export function ProductAnalyzer() {
   const [currentStep, setCurrentStep] = useState<AnalysisStep>(1)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isOnline, setIsOnline] = useState(true)
 
   // Step results
   const [productName, setProductName] = useState<string>("")
@@ -27,6 +28,25 @@ export function ProductAnalyzer() {
     isSafe: boolean
     parsingError?: boolean
   } | null>(null)
+
+  // Monitor online status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    // Set initial state
+    setIsOnline(navigator.onLine)
+
+    // Add event listeners
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+
+    // Clean up
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  }, [])
 
   const handleImageUpload = (blobUrl: string, preview: string) => {
     setImageUrl(blobUrl)
@@ -52,6 +72,12 @@ export function ProductAnalyzer() {
   // Step 1: Identify the product
   const handleIdentifyProduct = async () => {
     if (!imageUrl) return
+
+    // Check if online
+    if (!isOnline) {
+      setError("You appear to be offline. Please check your internet connection and try again.")
+      return
+    }
 
     setIsLoading(true)
     setError(null)
@@ -83,6 +109,12 @@ export function ProductAnalyzer() {
   const handleFindIngredients = async () => {
     if (!productName) return
 
+    // Check if online
+    if (!isOnline) {
+      setError("You appear to be offline. Please check your internet connection and try again.")
+      return
+    }
+
     setIsLoading(true)
     setError(null)
 
@@ -112,6 +144,12 @@ export function ProductAnalyzer() {
   // Step 3: Analyze ingredients
   const handleAnalyzeIngredients = async () => {
     if (ingredients.length === 0) return
+
+    // Check if online
+    if (!isOnline) {
+      setError("You appear to be offline. Please check your internet connection and try again.")
+      return
+    }
 
     setIsLoading(true)
     setError(null)
@@ -163,13 +201,18 @@ export function ProductAnalyzer() {
                 </p>
                 <Button
                   onClick={handleIdentifyProduct}
-                  disabled={isLoading}
+                  disabled={isLoading || !isOnline}
                   className="w-full bg-purple-600 hover:bg-purple-700"
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Identifying Product...
+                    </>
+                  ) : !isOnline ? (
+                    <>
+                      <WifiOff className="mr-2 h-4 w-4" />
+                      Offline - Check Connection
                     </>
                   ) : (
                     <>
@@ -218,13 +261,18 @@ export function ProductAnalyzer() {
                 </p>
                 <Button
                   onClick={handleFindIngredients}
-                  disabled={isLoading}
+                  disabled={isLoading || !isOnline}
                   className="w-full bg-purple-600 hover:bg-purple-700"
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Finding Ingredients...
+                    </>
+                  ) : !isOnline ? (
+                    <>
+                      <WifiOff className="mr-2 h-4 w-4" />
+                      Offline - Check Connection
                     </>
                   ) : (
                     <>
@@ -288,13 +336,18 @@ export function ProductAnalyzer() {
                 </div>
                 <Button
                   onClick={handleAnalyzeIngredients}
-                  disabled={isLoading}
+                  disabled={isLoading || !isOnline}
                   className="w-full bg-purple-600 hover:bg-purple-700"
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Analyzing Ingredients...
+                    </>
+                  ) : !isOnline ? (
+                    <>
+                      <WifiOff className="mr-2 h-4 w-4" />
+                      Offline - Check Connection
                     </>
                   ) : (
                     <>

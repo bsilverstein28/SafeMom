@@ -75,17 +75,36 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
         body: formData,
       })
 
-      const result = await response.json()
-
       if (!response.ok) {
-        throw new Error(result.error || "Failed to upload image")
+        const errorText = await response.text()
+        console.error("Upload error response:", errorText)
+        throw new Error(`Failed to upload image: ${response.status} ${response.statusText}`)
+      }
+
+      let result
+      try {
+        result = await response.json()
+      } catch (jsonError) {
+        console.error("Error parsing upload response:", jsonError)
+        throw new Error("Invalid response from upload service")
+      }
+
+      if (!result.url) {
+        throw new Error("No URL returned from upload service")
+      }
+
+      console.log("Image uploaded successfully:", result.url)
+
+      // Validate the URL before passing it to the parent component
+      if (!result.url.startsWith("http")) {
+        throw new Error("Invalid URL format returned from upload service")
       }
 
       // Pass both the blob URL and the preview URL to the parent component
       onImageSelected(result.url, previewUrl)
     } catch (error) {
       console.error("Error uploading to Blob:", error)
-      setUploadError("Failed to upload the image")
+      setUploadError(error.message || "Failed to upload the image")
     } finally {
       setIsUploading(false)
     }

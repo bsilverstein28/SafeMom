@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server"
 import OpenAI from "openai"
 
-// Explicitly set the runtime to nodejs
+// Drop Edge runtime, use Node.js for higher size limit
 export const runtime = "nodejs"
+
+// Raise body-parser cap to 10MB
+export const config = {
+  api: { bodyParser: { sizeLimit: "10mb" } },
+}
 
 // Create a singleton instance of the OpenAI client
 let openaiInstance: OpenAI | null = null
@@ -23,20 +28,42 @@ function getOpenAIClient() {
 
 export async function POST(request: Request) {
   try {
+    console.log("Received request to identify-product API")
+
     // Parse the request body
-    const { imageUrl } = await request.json()
+    let requestBody
+    try {
+      requestBody = await request.json()
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError)
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+
+    const { imageUrl } = requestBody
 
     if (!imageUrl) {
+      console.error("No image URL provided")
       return NextResponse.json({ error: "No image URL provided" }, { status: 400 })
     }
+
+    console.log("Processing image URL:", imageUrl.substring(0, 50) + "...")
 
     // Get the OpenAI client
     const openai = getOpenAIClient()
     if (!openai) {
+      console.error("OpenAI client initialization failed")
       return NextResponse.json({ error: "OpenAI client initialization failed" }, { status: 500 })
     }
 
     try {
+      console.log("Calling OpenAI API...")
+
+      // Validate the image URL before sending to OpenAI
+      if (!imageUrl.startsWith("http")) {
+        console.error("Invalid image URL format")
+        return NextResponse.json({ error: "Invalid image URL format" }, { status: 400 })
+      }
+
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -63,6 +90,7 @@ export async function POST(request: Request) {
       })
 
       const productName = completion.choices[0].message.content?.trim()
+      console.log("Product identified:", productName)
 
       if (!productName) {
         return NextResponse.json({ error: "Could not identify product from image" }, { status: 400 })
@@ -71,7 +99,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ product: productName })
     } catch (openaiError: any) {
       console.error("OpenAI API error:", openaiError)
-      return NextResponse.json({ error: `OpenAI API error: ${openaiError.message}` }, { status: 500 })
+
+      // Check if it's an OpenAI API error with a response
+      if (openaiError.response) {
+        console.error("OpenAI API error response:", openaiError.response)
+      }
+
+      return NextResponse.json(
+        {
+          error: `OpenAI API error: ${openaiError.message}`,
+          details: openaiError.response || "No additional details",
+        },
+        { status: 500 },
+      )
     }
   } catch (error: any) {
     console.error("Error identifying product:", error)

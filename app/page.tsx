@@ -1,4 +1,5 @@
 import { ProductAnalyzer } from "@/components/product-analyzer"
+import { ConnectivityCheck } from "@/components/connectivity-check"
 
 export default function Home() {
   return (
@@ -14,6 +15,8 @@ export default function Home() {
 
         <ProductAnalyzer />
       </div>
+
+      <ConnectivityCheck />
     </main>
   )
 }
