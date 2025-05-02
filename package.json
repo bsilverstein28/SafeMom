@@ -59,8 +59,14 @@
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
     "ws": "latest",
+    "@remix-run/react": "latest",
+    "@sveltejs/kit": "latest",
+    "svelte": "latest",
+    "vue": "latest",
+    "vue-router": "latest",
     "@vercel/blob": "latest",
-    "openai": "latest"
+    "openai": "latest",
+    "@vercel/analytics": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
