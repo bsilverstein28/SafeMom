@@ -90,18 +90,25 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
         const data = await response.json()
 
         // Extract the product name from the OpenAI response
-        let productName = "Unknown product"
+        let productName = null
         if (data && data.choices && data.choices[0] && data.choices[0].message) {
-          productName = data.choices[0].message.content || "Unknown product"
+          productName = data.choices[0].message.content || null
+          console.log("Product identified:", productName)
         }
 
-        console.log("Product identified:", productName)
-        onImageSelected(previewUrl, previewUrl, productName)
+        // If we have a product name, pass it to the parent component
+        if (productName) {
+          onImageSelected(previewUrl, previewUrl, productName)
+          setIsUploading(false)
+          return
+        }
       } catch (apiError: any) {
         console.error("Error with API call:", apiError)
         // Fall back to blob upload
-        uploadToBlob(file, previewUrl)
       }
+
+      // If we get here, either the API call failed or we couldn't extract the product name
+      uploadToBlob(file, previewUrl)
     } catch (error: any) {
       console.error("Error handling file:", error)
       setUploadError(error.message || "Failed to process the image")
@@ -109,9 +116,9 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
       // If we have a preview URL, try the blob upload as fallback
       if (error.previewUrl) {
         uploadToBlob(file, error.previewUrl)
+      } else {
+        setIsUploading(false)
       }
-    } finally {
-      setIsUploading(false)
     }
   }
 
@@ -151,11 +158,19 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
         throw new Error("Invalid URL format returned from upload service")
       }
 
-      // Pass both the blob URL and the preview URL to the parent component
-      onImageSelected(result.url, previewUrl)
+      // If we have a product name in the result, pass it along
+      if (result.product) {
+        console.log("Product identified from blob upload:", result.product)
+        onImageSelected(result.url, previewUrl, result.product)
+      } else {
+        // Pass both the blob URL and the preview URL to the parent component
+        onImageSelected(result.url, previewUrl)
+      }
     } catch (error: any) {
       console.error("Error uploading to Blob:", error)
       setUploadError(error.message || "Failed to upload the image")
+    } finally {
+      setIsUploading(false)
     }
   }
 

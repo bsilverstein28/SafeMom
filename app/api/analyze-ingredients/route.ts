@@ -1,4 +1,4 @@
-import { getOpenAIClient } from "@/lib/openai-client"
+import OpenAI from "openai"
 
 // Explicitly set the runtime to nodejs
 export const runtime = "nodejs"
@@ -25,16 +25,22 @@ export async function POST(request: Request) {
       })
     }
 
-    // Get the OpenAI client
-    const openai = getOpenAIClient()
-    if (!openai) {
-      return new Response(JSON.stringify({ error: "OpenAI client initialization failed" }), {
+    // Initialize OpenAI client directly in the API route
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("OpenAI API key not configured")
+      return new Response(JSON.stringify({ error: "OpenAI API key not configured" }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
       })
     }
 
     try {
+      // Create a new OpenAI client instance for this request
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+        timeout: 60000, // 60 seconds timeout
+      })
+
       // For text-only queries, we can still use gpt-4o
       const completion = await openai.chat.completions.create({
         model: "gpt-4o", // This is fine for text-only

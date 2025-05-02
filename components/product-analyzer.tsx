@@ -51,24 +51,27 @@ export function ProductAnalyzer() {
   }, [])
 
   const handleImageUpload = (blobUrl: string, preview: string, detectedProduct?: string) => {
+    console.log("Image uploaded:", { blobUrl, preview, detectedProduct })
     setImageUrl(blobUrl)
     setPreviewUrl(preview)
 
     // If we already have a product name from the direct analysis, use it and skip to step 2
     if (detectedProduct) {
+      console.log("Product detected during upload:", detectedProduct)
       setProductName(detectedProduct)
       setCurrentStep(2)
     } else {
+      console.log("No product detected during upload, staying at step 1")
       setCurrentStep(1)
+      // Reset product name if we're going back to step 1
+      setProductName("")
     }
 
     resetResults()
   }
 
   const resetResults = () => {
-    if (!productName) {
-      setProductName("")
-    }
+    // Don't reset product name here, as it's handled in handleImageUpload
     setIngredients([])
     setSafetyResults(null)
     setError(null)
@@ -85,7 +88,10 @@ export function ProductAnalyzer() {
 
   // Step 1: Identify the product
   const handleIdentifyProduct = async () => {
-    if (!imageUrl) return
+    if (!imageUrl) {
+      setError("No image available. Please upload an image first.")
+      return
+    }
 
     // Check if online
     if (!isOnline) {
@@ -98,7 +104,9 @@ export function ProductAnalyzer() {
     setErrorDiagnostics(null)
 
     try {
+      console.log("Identifying product from image URL:", imageUrl.substring(0, 50) + "...")
       const result = await identifyProduct(imageUrl)
+      console.log("Product identification result:", result)
 
       // Check for error in the result
       if (result.error) {
@@ -110,14 +118,16 @@ export function ProductAnalyzer() {
       }
 
       if (result.product) {
+        console.log("Product identified successfully:", result.product)
         setProductName(result.product)
         setCurrentStep(2)
       } else {
+        console.error("No product name returned from identification")
         setError("Failed to identify the product. Please try again.")
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Product identification error:", err)
-      setError("An unexpected error occurred. Please try again.")
+      setError(`An unexpected error occurred: ${err.message || "Unknown error"}`)
     } finally {
       setIsLoading(false)
     }
@@ -125,7 +135,11 @@ export function ProductAnalyzer() {
 
   // Step 2: Find ingredients
   const handleFindIngredients = async () => {
-    if (!productName) return
+    if (!productName || productName.trim() === "") {
+      console.error("No product name available for ingredient lookup")
+      setError("No product name available. Please identify the product first.")
+      return
+    }
 
     // Check if online
     if (!isOnline) {
@@ -138,7 +152,11 @@ export function ProductAnalyzer() {
     setErrorDiagnostics(null)
 
     try {
+      console.log("Finding ingredients for product:", productName)
+
+      // Call the server action directly with the product name
       const result = await findIngredients(productName)
+      console.log("Find ingredients result:", result)
 
       // Check for error in the result
       if (result.error) {
@@ -149,15 +167,17 @@ export function ProductAnalyzer() {
         return
       }
 
-      if (result.ingredients) {
+      if (result.ingredients && result.ingredients.length > 0) {
+        console.log("Ingredients found:", result.ingredients)
         setIngredients(result.ingredients)
         setCurrentStep(3)
       } else {
+        console.error("No ingredients returned from API")
         setError("Failed to find ingredients. Please try again.")
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Ingredients lookup error:", err)
-      setError("An unexpected error occurred. Please try again.")
+      setError(`An unexpected error occurred: ${err.message || "Unknown error"}`)
     } finally {
       setIsLoading(false)
     }
@@ -165,7 +185,10 @@ export function ProductAnalyzer() {
 
   // Step 3: Analyze ingredients
   const handleAnalyzeIngredients = async () => {
-    if (ingredients.length === 0) return
+    if (ingredients.length === 0) {
+      setError("No ingredients available. Please find ingredients first.")
+      return
+    }
 
     // Check if online
     if (!isOnline) {
@@ -178,7 +201,9 @@ export function ProductAnalyzer() {
     setErrorDiagnostics(null)
 
     try {
+      console.log("Analyzing ingredients:", ingredients)
       const result = await analyzeIngredients(ingredients)
+      console.log("Ingredient analysis result:", result)
 
       // Check for error in the result
       if (result.error) {
@@ -191,9 +216,9 @@ export function ProductAnalyzer() {
 
       setSafetyResults(result)
       setCurrentStep(4)
-    } catch (err) {
+    } catch (err: any) {
       console.error("Safety analysis error:", err)
-      setError("An unexpected error occurred. Please try again.")
+      setError(`An unexpected error occurred: ${err.message || "Unknown error"}`)
     } finally {
       setIsLoading(false)
     }
@@ -277,17 +302,17 @@ export function ProductAnalyzer() {
                     <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                     <h4 className="font-medium text-green-800">Product Identified</h4>
                   </div>
-                  <p className="mt-1 text-green-700">{productName}</p>
+                  <p className="mt-1 text-green-700 font-medium">{productName}</p>
                 </div>
               </div>
               <div className="flex-1 space-y-4">
                 <h3 className="text-lg font-medium text-purple-800">Step 2: Find Ingredients</h3>
                 <p className="text-gray-600 text-sm">
-                  Next, we'll use ChatGPT to search for the active ingredients in this product.
+                  Next, we'll use ChatGPT to search for the ingredients in {productName}.
                 </p>
                 <Button
                   onClick={handleFindIngredients}
-                  disabled={isLoading || !isOnline}
+                  disabled={isLoading || !isOnline || !productName}
                   className="w-full bg-purple-600 hover:bg-purple-700"
                 >
                   {isLoading ? (
@@ -300,6 +325,8 @@ export function ProductAnalyzer() {
                       <WifiOff className="mr-2 h-4 w-4" />
                       Offline - Check Connection
                     </>
+                  ) : !productName ? (
+                    "No Product Identified"
                   ) : (
                     <>
                       Find Ingredients
@@ -337,7 +364,7 @@ export function ProductAnalyzer() {
                     <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                     <h4 className="font-medium text-green-800">Product Identified</h4>
                   </div>
-                  <p className="mt-1 text-green-700">{productName}</p>
+                  <p className="mt-1 text-green-700 font-medium">{productName}</p>
                 </div>
                 <div className="bg-green-50 p-3 rounded-md border border-green-200">
                   <div className="flex items-center gap-2">
@@ -362,7 +389,7 @@ export function ProductAnalyzer() {
                 </div>
                 <Button
                   onClick={handleAnalyzeIngredients}
-                  disabled={isLoading || !isOnline}
+                  disabled={isLoading || !isOnline || ingredients.length === 0}
                   className="w-full bg-purple-600 hover:bg-purple-700"
                 >
                   {isLoading ? (

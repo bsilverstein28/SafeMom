@@ -82,7 +82,15 @@ export async function POST(req: Request) {
         })
       }
 
-      return new Response(JSON.stringify(data), {
+      // Extract the product name from the response
+      let productName = "Unknown product"
+      if (data && data.choices && data.choices[0] && data.choices[0].message) {
+        productName = data.choices[0].message.content || "Unknown product"
+        console.log("Extracted product name:", productName)
+      }
+
+      // Return both the raw response and the extracted product name
+      return new Response(JSON.stringify({ ...data, product: productName }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       })

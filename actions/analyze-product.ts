@@ -1,7 +1,6 @@
 "use server"
 
 import { makeApiRequest, getBaseUrl } from "@/lib/api-utils"
-import { analyzeImageWithVisionAPI } from "@/lib/openai-client"
 
 // Helper function to convert a URL to base64
 async function urlToBase64(url: string): Promise<string | null> {
@@ -141,36 +140,39 @@ export async function identifyProduct(imageUrl: string) {
 
 // Step 2: Find ingredients for the identified product
 export async function findIngredients(productName: string) {
+  console.log("Server action: findIngredients called with product name:", productName)
+
   try {
-    console.log("Looking up ingredients for:", productName)
-
-    // Use the helper function to make the API request
-    const { data, error, diagnostics } = await makeApiRequest({
-      endpoint: "/api/find-ingredients",
-      data: { productName },
-    })
-
-    // Check for errors and return diagnostics if available
-    if (error) {
-      console.error("Error in findIngredients:", error)
-      if (diagnostics) {
-        console.error("Error diagnostics:", JSON.stringify(diagnostics, null, 2))
-      }
-      return {
-        error,
-        diagnostics,
-      }
+    if (!productName || productName.trim() === "") {
+      return { error: "No product name provided" }
     }
 
-    const ingredientsList = data?.ingredients
+    // Use the API route for finding ingredients
+    console.log("Calling find-ingredients API for:", productName)
 
-    if (!ingredientsList || ingredientsList.length === 0) {
+    const response = await fetch(`${getBaseUrl()}/api/find-ingredients`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ productName }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`API error (${response.status}):`, errorText)
+      return { error: `API error: ${response.status} ${response.statusText}` }
+    }
+
+    const data = await response.json()
+
+    if (!data || !data.ingredients || !Array.isArray(data.ingredients) || data.ingredients.length === 0) {
       console.error("No ingredients returned from API")
       return { error: "Could not find ingredients for the product" }
     }
 
-    console.log("Found ingredients:", ingredientsList)
-    return { ingredients: ingredientsList }
+    console.log("Found ingredients:", data.ingredients)
+    return { ingredients: data.ingredients }
   } catch (error: any) {
     console.error("Error finding ingredients:", error)
     return { error: `Failed to find ingredients: ${error.message}` }
@@ -182,25 +184,24 @@ export async function analyzeIngredients(ingredients: string[]) {
   try {
     console.log("Analyzing ingredients for pregnancy safety:", ingredients)
 
-    // Use the helper function to make the API request
-    const { data, error, diagnostics } = await makeApiRequest({
-      endpoint: "/api/analyze-ingredients",
-      data: { ingredients },
+    // Use the API route for analyzing ingredients
+    const response = await fetch(`${getBaseUrl()}/api/analyze-ingredients`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ingredients }),
     })
 
-    // Check for errors and return diagnostics if available
-    if (error) {
-      console.error("Error in analyzeIngredients:", error)
-      if (diagnostics) {
-        console.error("Error diagnostics:", JSON.stringify(diagnostics, null, 2))
-      }
-      return {
-        error,
-        diagnostics,
-      }
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`API error (${response.status}):`, errorText)
+      return { error: `API error: ${response.status} ${response.statusText}` }
     }
 
+    const data = await response.json()
     console.log("Parsed safety results:", data)
+
     return {
       harmfulIngredients: data?.harmfulIngredients || [],
       isSafe: data?.isSafe,
@@ -209,40 +210,5 @@ export async function analyzeIngredients(ingredients: string[]) {
   } catch (error: any) {
     console.error("Error analyzing ingredients:", error)
     return { error: `Failed to analyze ingredients: ${error.message}` }
-  }
-}
-
-// Direct server action for image analysis - properly exported for client use
-export async function analyzeImageDirect(base64Image: string) {
-  "use server"
-
-  try {
-    console.log("Analyzing image directly from server action")
-
-    if (!base64Image) {
-      return { error: "No image data provided" }
-    }
-
-    try {
-      // Make the API call directly from the server
-      const result = await analyzeImageWithVisionAPI(
-        `data:image/jpeg;base64,${base64Image}`,
-        "What skincare product is shown in this image? Provide ONLY the brand and product name.",
-      )
-
-      if (result.choices && result.choices[0] && result.choices[0].message) {
-        const productName = result.choices[0].message.content
-        console.log("Product identified:", productName)
-        return { product: productName }
-      } else {
-        return { error: "Could not extract product name from API response" }
-      }
-    } catch (apiError: any) {
-      console.error("API error:", apiError)
-      return { error: `API error: ${apiError.message}` }
-    }
-  } catch (error: any) {
-    console.error("Error in analyzeImageDirect:", error)
-    return { error: `Failed to analyze image: ${error.message}` }
   }
 }

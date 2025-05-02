@@ -71,6 +71,12 @@ export async function makeApiRequest<T = any>({
   const url = `${baseUrl}${normalizedEndpoint}`
 
   console.log(`Making API request to: ${url}, method: ${method}`)
+
+  // Add specific logging for find-ingredients endpoint
+  if (endpoint.includes("find-ingredients")) {
+    console.log(`Finding ingredients for product: ${data?.productName || "unknown"}`)
+  }
+
   console.log(`URL details:`, getUrlDetails(url))
 
   let lastError: Error | null = null

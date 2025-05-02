@@ -1,4 +1,5 @@
 import { put } from "@vercel/blob"
+import { getOpenAIClient } from "@/lib/openai-client"
 
 // Drop Edge runtime, use Node.js for higher size limit
 export const runtime = "nodejs"
@@ -60,6 +61,57 @@ export async function POST(request: Request) {
 
       console.log(`File uploaded successfully. URL: ${blob.url}`)
 
+      // Now try to identify the product using the OpenAI Vision API
+      try {
+        const openai = getOpenAIClient()
+        if (openai) {
+          console.log("Identifying product from uploaded image...")
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a skincare product identification expert. Identify the exact brand and product name from images.",
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "What skincare product is shown in this image? Provide ONLY the brand and product name, nothing else.",
+                  },
+                  {
+                    type: "image_url",
+                    image_url: { url: blob.url, detail: "auto" },
+                  },
+                ],
+              },
+            ],
+            max_tokens: 300,
+          })
+
+          const productName = completion.choices[0].message.content?.trim()
+          console.log("Product identified:", productName)
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              url: blob.url,
+              product: productName || "Unknown product",
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          )
+        }
+      } catch (openaiError) {
+        console.error("Error identifying product:", openaiError)
+        // Continue without product identification
+      }
+
+      // Return just the URL if product identification failed
       return new Response(
         JSON.stringify({
           success: true,

@@ -4,12 +4,8 @@ import OpenAI from "openai"
 let openaiInstance: OpenAI | null = null
 
 export function getOpenAIClient() {
-  // Check if we're running on the client side
-  if (typeof window !== "undefined") {
-    console.error("Attempted to initialize OpenAI client on the client side")
-    throw new Error("OpenAI client can only be initialized on the server")
-  }
-
+  // In API routes, we're definitely on the server
+  // No need to check for window as API routes always run on the server
   if (!openaiInstance) {
     if (!process.env.OPENAI_API_KEY) {
       console.error("OpenAI API key not configured")
@@ -20,7 +16,6 @@ export function getOpenAIClient() {
       openaiInstance = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
         timeout: 60000, // Increase timeout to 60 seconds
-        // Remove dangerouslyAllowBrowser flag to prevent client-side usage
       })
       console.log("OpenAI client initialized successfully")
     } catch (error) {
