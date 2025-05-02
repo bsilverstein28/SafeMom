@@ -58,11 +58,22 @@ export function ProductAnalyzer() {
 
     try {
       const result = await identifyProduct(imageUrl)
-      setProductName(result.product)
-      setCurrentStep(2)
+
+      // Check for error in the result
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+
+      if (result.product) {
+        setProductName(result.product)
+        setCurrentStep(2)
+      } else {
+        setError("Failed to identify the product. Please try again.")
+      }
     } catch (err) {
       console.error("Product identification error:", err)
-      setError(err.message || "Failed to identify the product. Please try again.")
+      setError("An unexpected error occurred. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -77,11 +88,22 @@ export function ProductAnalyzer() {
 
     try {
       const result = await findIngredients(productName)
-      setIngredients(result.ingredients)
-      setCurrentStep(3)
+
+      // Check for error in the result
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+
+      if (result.ingredients) {
+        setIngredients(result.ingredients)
+        setCurrentStep(3)
+      } else {
+        setError("Failed to find ingredients. Please try again.")
+      }
     } catch (err) {
       console.error("Ingredients lookup error:", err)
-      setError(err.message || "Failed to find ingredients. Please try again.")
+      setError("An unexpected error occurred. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -96,11 +118,18 @@ export function ProductAnalyzer() {
 
     try {
       const result = await analyzeIngredients(ingredients)
+
+      // Check for error in the result
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+
       setSafetyResults(result)
       setCurrentStep(4)
     } catch (err) {
       console.error("Safety analysis error:", err)
-      setError(err.message || "Failed to analyze ingredients. Please try again.")
+      setError("An unexpected error occurred. Please try again.")
     } finally {
       setIsLoading(false)
     }
