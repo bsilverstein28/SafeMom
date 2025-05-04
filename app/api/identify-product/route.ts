@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     const apiKey = process.env.OPENAI_API_KEY
 
     if (!apiKey) {
-      console.error("API key is missing")
+      console.error("API key missing in environment")
       return NextResponse.json({ error: "Missing API Key" }, { status: 500 })
     }
 

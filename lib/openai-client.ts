@@ -7,7 +7,7 @@
 export async function fetchOpenAICompletion(
   prompt: string,
   systemPrompt = "You are a helpful assistant.",
-  model = "gpt-4o",
+  model = "gpt-4o-mini",
   maxTokens = 1000,
 ) {
   if (typeof window !== "undefined") {

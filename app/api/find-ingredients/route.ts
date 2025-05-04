@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     try {
       console.log("Calling OpenAI API to find ingredients for:", productName)
 
-      // Make a direct fetch call to the OpenAI API
+      // Make a direct fetch call to the OpenAI API with a more structured prompt
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-4o-mini",
           messages: [
             {
               role: "system",
@@ -66,7 +66,13 @@ export async function POST(request: Request) {
             },
             {
               role: "user",
-              content: `What ingredients are in ${productName}? Return ONLY the list of ingredients separated by commas. If you can't find the exact product, provide the most likely ingredients based on similar products from the same brand and line.`,
+              content: `What ingredients are in ${productName}? Return the list of ingredients separated by commas. 
+              
+              After listing the ingredients, on a new line, explicitly state whether this product contains alcohol as an ingredient (not just compounds with "alcohol" in the name like cetyl alcohol, which is not the same as ethanol). 
+              
+              Only say "CONTAINS_ALCOHOL: YES" if the product contains ethanol, ethyl alcohol, alcohol denat, SD alcohol, or isopropyl alcohol as an actual ingredient. Otherwise say "CONTAINS_ALCOHOL: NO".
+              
+              If you can't find the exact product, provide the most likely ingredients based on similar products from the same brand and line.`,
             },
           ],
           max_tokens: 1000,
@@ -83,21 +89,40 @@ export async function POST(request: Request) {
       }
 
       const data = await response.json()
-      const ingredientsText = data.choices[0].message.content?.trim() || ""
-      console.log("Ingredients text from OpenAI:", ingredientsText)
+      const responseText = data.choices[0].message.content?.trim() || ""
+      console.log("Full response text from OpenAI:", responseText)
 
+      // Split the response to separate ingredients from the alcohol indicator
+      const parts = responseText.split(/\r?\n/)
+
+      // Get the ingredients from the first part
+      const ingredientsText = parts[0]
       const ingredientsList = ingredientsText
         .split(",")
         .map((ingredient) => ingredient.trim())
         .filter((ingredient) => ingredient.length > 0)
+
+      // Check if any part contains the alcohol indicator
+      const containsAlcohol = parts.some((part) => part.trim().toUpperCase().includes("CONTAINS_ALCOHOL: YES"))
+
+      console.log("Parsed ingredients:", ingredientsList)
+      console.log("Contains alcohol:", containsAlcohol)
 
       if (ingredientsList.length === 0) {
         console.error("No ingredients found in OpenAI response")
         return NextResponse.json({ error: "Could not find ingredients for the product" }, { status: 400 })
       }
 
-      console.log("Returning ingredients list:", ingredientsList)
-      return NextResponse.json({ ingredients: ingredientsList })
+      if (containsAlcohol) {
+        console.log("Alcohol detected in product")
+        return NextResponse.json({
+          ingredients: ingredientsList,
+          containsAlcohol: true,
+          alcoholWarning: "This product appears to contain alcohol, which is never recommended for pregnant women",
+        })
+      } else {
+        return NextResponse.json({ ingredients: ingredientsList, containsAlcohol: false })
+      }
     } catch (openaiError: any) {
       console.error("OpenAI API error:", openaiError)
       return NextResponse.json({ error: `OpenAI API error: ${openaiError.message}` }, { status: 500 })

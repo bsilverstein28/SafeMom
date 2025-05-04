@@ -58,6 +58,7 @@ export async function identifyProduct(imageUrl: string) {
             if (data.choices && data.choices[0] && data.choices[0].message) {
               const productName = data.choices[0].message.content
               console.log("Product identified using base64 approach:", productName)
+
               return { product: productName }
             }
           } else {
@@ -91,6 +92,7 @@ export async function identifyProduct(imageUrl: string) {
             if (data.choices && data.choices[0] && data.choices[0].message) {
               const productName = data.choices[0].message.content
               console.log("Product identified using data URL approach:", productName)
+
               return { product: productName }
             }
           } else {
@@ -130,6 +132,7 @@ export async function identifyProduct(imageUrl: string) {
     }
 
     console.log("Identified product:", productName)
+
     return { product: productName }
   } catch (error: any) {
     console.error("Error identifying product:", error)
@@ -176,6 +179,19 @@ export async function findIngredients(productName: string) {
       }
 
       console.log("Found ingredients:", data.ingredients)
+
+      // Check if the product contains alcohol
+      if (data.containsAlcohol) {
+        console.log("Alcohol detected in product")
+        return {
+          ingredients: data.ingredients,
+          containsAlcohol: true,
+          alcoholWarning:
+            data.alcoholWarning ||
+            "This product appears to contain alcohol, which is never recommended for pregnant women",
+        }
+      }
+
       return { ingredients: data.ingredients }
     } catch (fetchError: any) {
       console.error("Error fetching from API:", fetchError)

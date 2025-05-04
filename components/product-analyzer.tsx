@@ -7,7 +7,7 @@ import { ImageUploader } from "@/components/image-uploader"
 import { AnalysisResults } from "@/components/analysis-results"
 import { SavedSearches } from "@/components/saved-searches"
 import { identifyProduct, findIngredients, analyzeIngredients } from "@/actions/analyze-product"
-import { ArrowRight, CheckCircle, Loader2, WifiOff, Save, Check } from "lucide-react"
+import { ArrowRight, CheckCircle, Loader2, WifiOff, Save, Check, AlertTriangle } from "lucide-react"
 import { StepIndicator } from "@/components/step-indicator"
 import { ErrorDisplay } from "@/components/error-display"
 import { saveSearchResult } from "@/lib/saved-searches"
@@ -28,6 +28,7 @@ export function ProductAnalyzer() {
   const [isFromSavedSearch, setIsFromSavedSearch] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [alcoholWarning, setAlcoholWarning] = useState<string | null>(null)
 
   // Step results
   const [productName, setProductName] = useState<string>("")
@@ -63,6 +64,7 @@ export function ProductAnalyzer() {
     setPreviewUrl(preview)
     setIsFromSavedSearch(false)
     setIsSaved(false)
+    setAlcoholWarning(null)
 
     // If we already have a product name from the direct analysis, use it and skip to step 2
     if (detectedProduct) {
@@ -86,6 +88,7 @@ export function ProductAnalyzer() {
     setError(null)
     setErrorDiagnostics(null)
     setIsSaved(false)
+    setAlcoholWarning(null)
   }
 
   const handleReset = () => {
@@ -95,6 +98,7 @@ export function ProductAnalyzer() {
     setProductName("")
     setIsFromSavedSearch(false)
     setIsSaved(false)
+    setAlcoholWarning(null)
     resetResults()
   }
 
@@ -117,6 +121,7 @@ export function ProductAnalyzer() {
     setIsSaved(true) // It's already saved
     setError(null)
     setErrorDiagnostics(null)
+    setAlcoholWarning(null)
   }
 
   // Save the current result
@@ -168,6 +173,7 @@ export function ProductAnalyzer() {
     setIsLoading(true)
     setError(null)
     setErrorDiagnostics(null)
+    setAlcoholWarning(null)
 
     try {
       console.log("Identifying product from image URL:", imageUrl.substring(0, 50) + "...")
@@ -187,9 +193,6 @@ export function ProductAnalyzer() {
         console.log("Product identified successfully:", result.product)
         setProductName(result.product)
         setCurrentStep(2)
-      } else {
-        console.error("No product name returned from identification")
-        setError("Failed to identify the product. Please try again.")
       }
     } catch (err: any) {
       console.error("Product identification error:", err)
@@ -216,6 +219,7 @@ export function ProductAnalyzer() {
     setIsLoading(true)
     setError(null)
     setErrorDiagnostics(null)
+    setAlcoholWarning(null)
 
     try {
       console.log("Finding ingredients for product:", productName)
@@ -230,6 +234,31 @@ export function ProductAnalyzer() {
         if (result.diagnostics) {
           setErrorDiagnostics(result.diagnostics)
         }
+        return
+      }
+
+      // Check if the product contains alcohol
+      if (result.containsAlcohol && result.alcoholWarning) {
+        console.log("Alcohol detected in product")
+        setAlcoholWarning(result.alcoholWarning)
+
+        // Set ingredients and skip to results
+        setIngredients(result.ingredients)
+
+        // Create safety results for alcohol
+        setSafetyResults({
+          harmfulIngredients: [
+            {
+              name: "Alcohol (Ethanol)",
+              reason:
+                "Alcohol in skincare products can be absorbed through the skin. While the risk is lower than with consumption, it's generally recommended to avoid alcohol-containing products during pregnancy as a precaution.",
+            },
+          ],
+          isSafe: false,
+        })
+
+        // Skip to results
+        setCurrentStep(4)
         return
       }
 
@@ -302,6 +331,92 @@ export function ProductAnalyzer() {
 
     // Use the preview URL for display, but the blob URL for API calls
     const displayImage = previewUrl || imageUrl
+
+    // Special case for alcohol warning
+    if (alcoholWarning && currentStep === 4) {
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+            <div className="w-full sm:w-1/3 rounded-md overflow-hidden">
+              <img
+                src={displayImage || "/placeholder.svg"}
+                alt="Uploaded product"
+                className="w-full h-auto object-cover"
+              />
+            </div>
+            <div className="flex-1">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-6 w-6 text-red-500 flex-shrink-0" />
+                  <h2 className="text-xl font-semibold text-red-800">{alcoholWarning}</h2>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-medium mb-1 text-purple-800">Identified Product</h3>
+                  <p className="text-gray-700">{productName}</p>
+                </div>
+
+                <div className="bg-red-50 p-4 rounded-md border border-red-200">
+                  <h3 className="text-lg font-medium mb-2 text-red-700">Warning</h3>
+                  <p className="text-red-700">
+                    Alcohol consumption during pregnancy can lead to fetal alcohol spectrum disorders (FASDs), which can
+                    cause physical, behavioral, and learning problems in the baby. No amount of alcohol is known to be
+                    safe during pregnancy.
+                  </p>
+                  <p className="text-red-700 mt-2">
+                    The American College of Obstetricians and Gynecologists, the American Academy of Pediatrics, and the
+                    Centers for Disease Control and Prevention all advise pregnant women not to drink any alcohol.
+                  </p>
+                </div>
+              </div>
+              {isFromSavedSearch && (
+                <div className="mt-4 bg-blue-50 p-3 rounded-md border border-blue-200">
+                  <p className="text-blue-700 text-sm">
+                    This is a saved result. No new API calls were made to retrieve this information.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button onClick={handleReset} className="w-full bg-purple-600 hover:bg-purple-700">
+              Analyze Another Product
+            </Button>
+
+            {!isFromSavedSearch && (
+              <Button
+                onClick={handleSaveResult}
+                disabled={isSaving || isSaved}
+                variant={isSaved ? "outline" : "secondary"}
+                className={`w-full ${
+                  isSaved
+                    ? "border-green-300 text-green-700 bg-green-50"
+                    : "bg-purple-100 text-purple-800 hover:bg-purple-200"
+                }`}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : isSaved ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Saved
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Result
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      )
+    }
 
     switch (currentStep) {
       case 1:
