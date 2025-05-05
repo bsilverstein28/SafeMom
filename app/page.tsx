@@ -12,8 +12,8 @@ export default function Home() {
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
             <Image
-              src="/images/babysafe-logo.png"
-              alt="BabySafe Logo"
+              src="/images/safemom-logo.png"
+              alt="SafeMom Logo"
               width={300}
               height={100}
               priority
@@ -21,8 +21,8 @@ export default function Home() {
             />
           </div>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            BabySafe uses AI to ensure the products you use during your pregnancy are safe. Simply snap a picture, and
-            BabySafe will tell you if a product contains ingredients you should avoid during your pregnancy.
+            Analyze skincare products, makeup, shampoos, food, and other items to make sure they're safe for expecting
+            mothers. Get started by uploading a picture.
           </p>
         </div>
 

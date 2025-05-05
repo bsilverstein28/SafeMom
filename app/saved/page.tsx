@@ -78,7 +78,7 @@ export default function SavedSearchesPage() {
           <Card className="w-full">
             <CardContent className="p-6 text-center">
               <div className="flex justify-center mb-4">
-                <Image src="/images/babysafe-logo.png" alt="BabySafe Logo" width={200} height={70} className="h-auto" />
+                <Image src="/images/safemom-logo.png" alt="SafeMom Logo" width={200} height={70} className="h-auto" />
               </div>
               <p className="text-gray-600 mb-4">You don't have any saved product analyses yet.</p>
               <Button asChild className="bg-purple-600 hover:bg-purple-700">

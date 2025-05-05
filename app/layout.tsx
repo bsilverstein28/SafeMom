@@ -11,8 +11,8 @@ import { Header } from "@/components/header"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "BabySafe",
-  description: "BabySafe uses AI to ensure the products you use during your pregnancy are safe.",
+  title: "SafeMom",
+  description: "SafeMom uses AI to ensure the products you use during your pregnancy are safe.",
     generator: 'v0.dev'
 }
 

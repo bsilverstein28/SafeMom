@@ -9,7 +9,7 @@ export function Header() {
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center">
           <Link href="/" className="mr-4">
-            <Image src="/images/babysafe-logo.png" alt="BabySafe Logo" width={150} height={50} className="h-auto" />
+            <Image src="/images/safemom-logo.png" alt="SafeMom Logo" width={150} height={50} className="h-auto" />
           </Link>
           <div className="flex items-center space-x-4 ml-2">
             <NavLink href="/">Home</NavLink>
