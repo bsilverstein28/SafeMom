@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Upload, Camera, Loader2, AlertCircle } from "lucide-react"
+import { Upload, Camera, Loader2 } from "lucide-react"
 
 interface ImageUploaderProps {
   onImageSelected: (imageUrl: string, previewUrl: string, productName?: string) => void
@@ -69,58 +69,42 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
       // Create a preview URL for display
       const previewUrl = URL.createObjectURL(file)
 
-      // Use the preview URL as the image URL initially
-      // This ensures we have something to display even if the API calls fail
-      onImageSelected(previewUrl, previewUrl)
-
       // Convert file to base64
+      const base64Image = await fileToBase64(file)
+      console.log("Image converted to base64 (length):", base64Image.length)
+
+      // Instead of using the server action directly, use the API route
       try {
-        const base64Image = await fileToBase64(file)
-        console.log("Image converted to base64 (length):", base64Image.length)
+        const response = await fetch("/api/analyze-base64", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ base64Image }),
+        })
 
-        // Instead of using the server action directly, use the API route
-        try {
-          const response = await fetch("/api/analyze-base64", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ base64Image }),
-          })
-
-          if (!response.ok) {
-            throw new Error(`API error: ${response.status}`)
-          }
-
-          let data
-          try {
-            const text = await response.text()
-            data = JSON.parse(text)
-          } catch (jsonError) {
-            console.error("Error parsing JSON response:", jsonError)
-            throw new Error("Invalid response from server")
-          }
-
-          // Extract the product name from the OpenAI response
-          let productName = null
-          if (data && data.choices && data.choices[0] && data.choices[0].message) {
-            productName = data.choices[0].message.content || null
-            console.log("Product identified:", productName)
-          }
-
-          // If we have a product name, pass it to the parent component
-          if (productName) {
-            onImageSelected(previewUrl, previewUrl, productName)
-            setIsUploading(false)
-            return
-          }
-        } catch (apiError: any) {
-          console.error("Error with API call:", apiError)
-          // Fall back to blob upload
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`)
         }
-      } catch (base64Error) {
-        console.error("Error converting to base64:", base64Error)
-        // Continue with blob upload
+
+        const data = await response.json()
+
+        // Extract the product name from the OpenAI response
+        let productName = null
+        if (data && data.choices && data.choices[0] && data.choices[0].message) {
+          productName = data.choices[0].message.content || null
+          console.log("Product identified:", productName)
+        }
+
+        // If we have a product name, pass it to the parent component
+        if (productName) {
+          onImageSelected(previewUrl, previewUrl, productName)
+          setIsUploading(false)
+          return
+        }
+      } catch (apiError: any) {
+        console.error("Error with API call:", apiError)
+        // Fall back to blob upload
       }
 
       // If we get here, either the API call failed or we couldn't extract the product name
@@ -157,8 +141,7 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
 
       let result
       try {
-        const text = await response.text()
-        result = JSON.parse(text)
+        result = await response.json()
       } catch (jsonError) {
         console.error("Error parsing upload response:", jsonError)
         throw new Error("Invalid response from upload service")
@@ -243,10 +226,7 @@ export function ImageUploader({ onImageSelected }: ImageUploaderProps) {
           </Button>
         </div>
         {uploadError ? (
-          <div className="bg-red-50 p-3 rounded-md border border-red-200 flex items-start gap-2 max-w-xs">
-            <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-red-500 text-left">{uploadError}</p>
-          </div>
+          <p className="text-xs text-red-500">{uploadError}</p>
         ) : (
           <p className="text-xs text-gray-500">Supported formats: JPG, PNG, GIF</p>
         )}

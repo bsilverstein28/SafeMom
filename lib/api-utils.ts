@@ -60,48 +60,6 @@ export function getBaseUrl() {
   return "http://localhost:3000"
 }
 
-// Add this function to the existing file, near the top with the other helper functions
-export function validateImageUrl(url: string): boolean {
-  // Check if it's a valid URL format
-  if (!url) return false
-
-  // Check if it's a data URL
-  if (url.startsWith("data:image/")) return true
-
-  // Check if it's an HTTP URL
-  if (url.startsWith("http://") || url.startsWith("https://")) return true
-
-  // Check if it's a relative URL
-  if (url.startsWith("/")) return true
-
-  return false
-}
-
-// Helper function to safely parse JSON with fallback for HTML responses
-export async function safeParseJson<T>(response: Response): Promise<{ data?: T; error?: string; html?: string }> {
-  const contentType = response.headers.get("content-type") || ""
-
-  // Check if the response is HTML
-  if (contentType.includes("text/html")) {
-    const html = await response.text()
-    return { error: "Received HTML instead of JSON", html }
-  }
-
-  try {
-    // Try to parse as JSON
-    const text = await response.text()
-    try {
-      const data = JSON.parse(text) as T
-      return { data }
-    } catch (e) {
-      // If JSON parsing fails, return the raw text for debugging
-      return { error: `Failed to parse JSON: ${e instanceof Error ? e.message : String(e)}`, html: text }
-    }
-  } catch (e) {
-    return { error: `Error reading response: ${e instanceof Error ? e.message : String(e)}` }
-  }
-}
-
 // Helper function to make API requests with better error handling
 export async function makeApiRequest<T = any>({
   endpoint,
@@ -123,24 +81,6 @@ export async function makeApiRequest<T = any>({
   // Add specific logging for find-ingredients endpoint
   if (endpoint.includes("find-ingredients")) {
     console.log(`Finding ingredients for product: ${data?.productName || "unknown"}`)
-  }
-
-  // Add validation for image URLs in the analyze endpoint
-  if (endpoint.includes("analyze") && data?.imageUrl) {
-    if (!validateImageUrl(data.imageUrl)) {
-      console.error("Invalid image URL format:", data.imageUrl.substring(0, 50) + "...")
-      return {
-        error: "Invalid image URL format",
-        diagnostics: {
-          url,
-          statusCode: 400,
-          details: "The provided image URL is not in a valid format",
-        },
-      }
-    }
-
-    // Log the image URL type
-    console.log("Image URL type:", data.imageUrl.startsWith("data:") ? "data URL" : "regular URL")
   }
 
   console.log(`URL details:`, getUrlDetails(url))
@@ -181,20 +121,6 @@ export async function makeApiRequest<T = any>({
       const contentType = response.headers.get("content-type") || ""
       const contentLength = response.headers.get("content-length") || "unknown"
 
-      // Handle 400 Bad Request specifically
-      if (response.status === 400) {
-        console.error(`Bad Request (400) error for ${endpoint}:`, await response.text())
-        return {
-          error: "The server couldn't process this request. Please check your input and try again.",
-          diagnostics: {
-            url,
-            statusCode: 400,
-            contentType,
-            responseSize: Number.parseInt(contentLength) || 0,
-          },
-        }
-      }
-
       // Handle 401 Unauthorized specifically
       if (response.status === 401) {
         console.error("Authentication required for API endpoint:", url)
@@ -204,10 +130,12 @@ export async function makeApiRequest<T = any>({
         console.log("Bypassing authentication requirement and continuing with request")
 
         // If we get a 401, we'll just try to parse the response anyway
-        const parseResult = await safeParseJson<T>(response)
-        if (parseResult.data) {
-          return { data: parseResult.data }
-        } else {
+        let responseData: T
+        try {
+          responseData = await response.json()
+          return { data: responseData }
+        } catch (jsonError) {
+          // If we can't parse the response, return a more helpful error
           return {
             error: "API authentication issue. This may be a temporary problem.",
             diagnostics: {
@@ -215,7 +143,6 @@ export async function makeApiRequest<T = any>({
               urlDetails: getUrlDetails(url),
               statusCode: response.status,
               contentType,
-              htmlResponse: parseResult.html,
             },
           }
         }
@@ -226,8 +153,6 @@ export async function makeApiRequest<T = any>({
         const htmlContent = await response.text()
         const htmlInspection = await inspectHtmlResponse(response)
         console.error(`Received HTML response from ${endpoint} instead of JSON`)
-        console.error(`URL: ${url}, Status: ${response.status}, Content-Type: ${contentType}`)
-        console.error(`Request data:`, data)
 
         // Try to detect common error patterns
         const errorPattern = detectErrorPattern(response, htmlContent)
@@ -252,7 +177,6 @@ export async function makeApiRequest<T = any>({
             htmlResponse: htmlInspection,
             responseSize: Number.parseInt(contentLength) || 0,
             retryAttempt: retryCount,
-            requestData: JSON.stringify(data).substring(0, 200) + "...", // Add request data to diagnostics
             errorPattern: errorPattern
               ? {
                   name: errorPattern.name,
@@ -264,11 +188,12 @@ export async function makeApiRequest<T = any>({
         }
       }
 
-      // Parse the response as JSON using our safe parser
-      const parseResult = await safeParseJson<T>(response)
-
-      if (parseResult.error) {
-        console.error(`Error parsing JSON response from ${endpoint}:`, parseResult.error)
+      // Parse the response as JSON
+      let responseData: T
+      try {
+        responseData = await response.json()
+      } catch (jsonError) {
+        console.error(`Error parsing JSON response from ${endpoint}:`, jsonError)
 
         if (retryCount < retries) {
           retryCount++
@@ -278,21 +203,20 @@ export async function makeApiRequest<T = any>({
         }
 
         return {
-          error: parseResult.error,
+          error: "Failed to parse server response. Please try again later.",
           diagnostics: {
             url,
             statusCode: response.status,
             contentType,
             responseSize: Number.parseInt(contentLength) || 0,
             retryAttempt: retryCount,
-            htmlResponse: parseResult.html,
           },
         }
       }
 
       // Check for errors in the response
       if (!response.ok) {
-        console.error(`API error from ${endpoint}:`, parseResult.data)
+        console.error(`API error from ${endpoint}:`, responseData)
 
         if (response.status >= 500 && retryCount < retries) {
           retryCount++
@@ -302,7 +226,7 @@ export async function makeApiRequest<T = any>({
         }
 
         return {
-          error: (parseResult.data as any)?.error || getSolutionForStatus(response.status),
+          error: (responseData as any).error || getSolutionForStatus(response.status),
           diagnostics: {
             url,
             statusCode: response.status,
@@ -313,7 +237,7 @@ export async function makeApiRequest<T = any>({
         }
       }
 
-      return { data: parseResult.data }
+      return { data: responseData }
     } catch (error: any) {
       lastError = error
 

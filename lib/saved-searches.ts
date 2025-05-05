@@ -40,14 +40,7 @@ export function getSavedSearches(): SavedSearches {
     const savedData = localStorage.getItem("savedSearches")
     if (!savedData) return { searches: [] }
 
-    try {
-      return JSON.parse(savedData) as SavedSearches
-    } catch (parseError) {
-      console.error("Error parsing saved searches JSON:", parseError)
-      // If there's a parsing error, clear the corrupted data
-      localStorage.removeItem("savedSearches")
-      return { searches: [] }
-    }
+    return JSON.parse(savedData) as SavedSearches
   } catch (error) {
     console.error("Error retrieving saved searches:", error)
     return { searches: [] }

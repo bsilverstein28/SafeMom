@@ -18,13 +18,9 @@ export async function POST(request: Request) {
 
     // Parse the request body
     let ingredients
-    let productName
-    let isFood = false
     try {
       const body = await request.json()
       ingredients = body.ingredients
-      productName = body.productName || ""
-      isFood = body.isFood || false
     } catch (parseError) {
       console.error("Error parsing request body:", parseError)
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
@@ -62,47 +58,14 @@ export async function POST(request: Request) {
             {
               role: "system",
               content:
-                "You are an expert in pregnancy safety for both skincare products and food items. You provide accurate analysis of ingredients based on current medical guidelines for pregnant women.",
+                "You are a pregnancy safety expert for skincare ingredients. Provide accurate analysis in JSON format.",
             },
             {
               role: "user",
-              content: `Analyze these ingredients ${
-                productName ? `from "${productName}"` : ""
-              } for safety during pregnancy:
+              content: `Analyze these skincare ingredients for safety during pregnancy:
               ${ingredients.join(", ")}
               
-              ${
-                isFood
-                  ? `This is a food product. Consider common food safety concerns during pregnancy such as:
-                  - High mercury fish (shark, swordfish, king mackerel, tilefish)
-                  - Raw or undercooked seafood, eggs, or meat
-                  - Unpasteurized dairy products or juices
-                  - Deli meats and hot dogs (unless heated until steaming)
-                  - High caffeine content
-                  - Alcohol
-                  - Raw sprouts
-                  - Unwashed produce
-                  - Excessive added sugars
-                  - Artificial sweeteners (in moderation)
-                  - Food additives like nitrates/nitrites
-                  - Herbs that may stimulate contractions (e.g., sage, rosemary in large amounts)`
-                  : `This is a skincare/cosmetic product. Consider ingredients that may be absorbed through the skin and potentially affect pregnancy, such as:
-                  - Retinoids (retinol, tretinoin, adapalene, etc.)
-                  - High-concentration salicylic acid
-                  - Hydroquinone
-                  - Chemical sunscreens (oxybenzone)
-                  - Formaldehyde and formaldehyde-releasing preservatives
-                  - Phthalates
-                  - Parabens
-                  - Essential oils in high concentrations
-                  - Aluminum chloride
-                  - Thioglycolic acid
-                  - Dihydroxyacetone (DHA) in spray tans
-                  - Botulinum toxin
-                  - Certain hair dyes`
-              }
-              
-              For each potentially harmful ingredient, explain why it's concerning during pregnancy and the potential risks.
+              For each potentially harmful ingredient, explain why it's concerning during pregnancy.
               
               You MUST respond with ONLY a valid JSON object using this exact structure:
               {

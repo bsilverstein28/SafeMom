@@ -1,6 +1,5 @@
 import { ProductAnalyzer } from "@/components/product-analyzer"
 import { ConnectivityCheck } from "@/components/connectivity-check"
-import { ErrorBoundary } from "@/components/error-boundary"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Bug } from "lucide-react"
@@ -27,9 +26,7 @@ export default function Home() {
           </p>
         </div>
 
-        <ErrorBoundary>
-          <ProductAnalyzer />
-        </ErrorBoundary>
+        <ProductAnalyzer />
 
         <div className="mt-8 text-center">
           <Button asChild variant="ghost" size="sm" className="text-purple-600 text-xs">

@@ -67,7 +67,7 @@ export async function POST(request: Request) {
               content: [
                 {
                   type: "text",
-                  text: "What product is shown in this image? This could be a skincare product, makeup, food item (including prepared foods), or other consumer product. Provide ONLY the brand and product name or dish name for prepared foods, nothing else.",
+                  text: "What product is shown in this image? Provide ONLY the brand and product name, nothing else.",
                 },
                 {
                   type: "image_url",
