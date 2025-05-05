@@ -1,4 +1,4 @@
-import { CheckCircle, AlertTriangle, AlertCircle } from "lucide-react"
+import { CheckCircle, AlertTriangle, AlertCircle, Utensils, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface AnalysisResultsProps {
@@ -8,11 +8,12 @@ interface AnalysisResultsProps {
     harmfulIngredients: { name: string; reason: string }[]
     isSafe: boolean
     parsingError?: boolean
+    isFood?: boolean
   }
 }
 
 export function AnalysisResults({ results }: AnalysisResultsProps) {
-  const { product, ingredients, harmfulIngredients, isSafe, parsingError } = results
+  const { product, ingredients, harmfulIngredients, isSafe, parsingError, isFood } = results
 
   return (
     <div className="space-y-4">
@@ -38,7 +39,20 @@ export function AnalysisResults({ results }: AnalysisResultsProps) {
 
       <div>
         <h3 className="text-lg font-medium mb-1 text-purple-800">Identified Product</h3>
-        <p className="text-gray-700">{product}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-gray-700">{product}</p>
+          {isFood ? (
+            <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+              <Utensils className="h-3 w-3 mr-1" />
+              Food
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200">
+              <Sparkles className="h-3 w-3 mr-1" />
+              Skincare/Cosmetic
+            </Badge>
+          )}
+        </div>
       </div>
 
       {harmfulIngredients && harmfulIngredients.length > 0 && (
@@ -71,7 +85,9 @@ export function AnalysisResults({ results }: AnalysisResultsProps) {
                   className={
                     isHarmful
                       ? "bg-red-100 text-red-800 border-red-200"
-                      : "bg-purple-100 text-purple-800 border-purple-200"
+                      : isFood
+                        ? "bg-green-100 text-green-800 border-green-200"
+                        : "bg-purple-100 text-purple-800 border-purple-200"
                   }
                 >
                   {ingredient}
@@ -83,6 +99,16 @@ export function AnalysisResults({ results }: AnalysisResultsProps) {
           <p className="text-gray-500 text-sm">No ingredients were identified.</p>
         )}
       </div>
+
+      {isFood && (
+        <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
+          <h4 className="font-medium text-blue-800 mb-1">Food Safety During Pregnancy</h4>
+          <p className="text-sm text-blue-700">
+            Always ensure food is properly washed, cooked thoroughly, and stored at safe temperatures. Consult with your
+            healthcare provider about specific dietary restrictions during your pregnancy.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

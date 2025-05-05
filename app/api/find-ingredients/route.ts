@@ -62,17 +62,28 @@ export async function POST(request: Request) {
           messages: [
             {
               role: "system",
-              content: "You are a skincare ingredients expert. List ingredients accurately and concisely.",
+              content:
+                "You are an expert in both skincare and food ingredients. List ingredients accurately and concisely.",
             },
             {
               role: "user",
-              content: `What ingredients are in ${productName}? Return the list of ingredients separated by commas. 
+              content: `What ingredients are in ${productName}? 
+
+              First, determine if this is a food product or a skincare/cosmetic product. Respond with "PRODUCT_TYPE: FOOD" or "PRODUCT_TYPE: SKINCARE" on the first line.
               
-              After listing the ingredients, on a new line, explicitly state whether this product contains alcohol as an ingredient (not just compounds with "alcohol" in the name like cetyl alcohol, which is not the same as ethanol). 
+              Then, return the list of ingredients separated by commas. 
               
-              Only say "CONTAINS_ALCOHOL: YES" if the product contains ethanol, ethyl alcohol, alcohol denat, SD alcohol, or isopropyl alcohol as an actual ingredient. Otherwise say "CONTAINS_ALCOHOL: NO".
+              For food products:
+              - List main ingredients and common allergens
+              - Include additives, preservatives, and artificial ingredients
+              - Note if it contains raw/undercooked ingredients
               
-              If you can't find the exact product, provide the most likely ingredients based on similar products from the same brand and line.`,
+              For skincare products:
+              - List all ingredients in standard INCI format if possible
+              - After listing the ingredients, on a new line, explicitly state whether this product contains alcohol as an ingredient (not just compounds with "alcohol" in the name like cetyl alcohol, which is not the same as ethanol)
+              - Only say "CONTAINS_ALCOHOL: YES" if the product contains ethanol, ethyl alcohol, alcohol denat, SD alcohol, or isopropyl alcohol as an actual ingredient. Otherwise say "CONTAINS_ALCOHOL: NO"
+              
+              If you can't find the exact product, provide the most likely ingredients based on similar products.`,
             },
           ],
           max_tokens: 1000,
@@ -92,18 +103,29 @@ export async function POST(request: Request) {
       const responseText = data.choices[0].message.content?.trim() || ""
       console.log("Full response text from OpenAI:", responseText)
 
-      // Split the response to separate ingredients from the alcohol indicator
+      // Split the response to separate product type, ingredients, and alcohol indicator
       const parts = responseText.split(/\r?\n/)
 
-      // Get the ingredients from the first part
-      const ingredientsText = parts[0]
+      // Determine if this is a food product
+      const isFood = parts.some((part) => part.trim().toUpperCase().includes("PRODUCT_TYPE: FOOD"))
+      console.log("Is food product:", isFood)
+
+      // Get the ingredients from the parts (skip the first line which has the product type)
+      let ingredientsText = ""
+      for (let i = 1; i < parts.length; i++) {
+        if (!parts[i].includes("CONTAINS_ALCOHOL:")) {
+          ingredientsText += parts[i] + " "
+        }
+      }
+
       const ingredientsList = ingredientsText
         .split(",")
         .map((ingredient) => ingredient.trim())
         .filter((ingredient) => ingredient.length > 0)
 
-      // Check if any part contains the alcohol indicator
-      const containsAlcohol = parts.some((part) => part.trim().toUpperCase().includes("CONTAINS_ALCOHOL: YES"))
+      // Check if any part contains the alcohol indicator (only relevant for skincare)
+      const containsAlcohol =
+        !isFood && parts.some((part) => part.trim().toUpperCase().includes("CONTAINS_ALCOHOL: YES"))
 
       console.log("Parsed ingredients:", ingredientsList)
       console.log("Contains alcohol:", containsAlcohol)
@@ -119,9 +141,14 @@ export async function POST(request: Request) {
           ingredients: ingredientsList,
           containsAlcohol: true,
           alcoholWarning: "This product appears to contain alcohol, which is never recommended for pregnant women",
+          isFood: isFood,
         })
       } else {
-        return NextResponse.json({ ingredients: ingredientsList, containsAlcohol: false })
+        return NextResponse.json({
+          ingredients: ingredientsList,
+          containsAlcohol: false,
+          isFood: isFood,
+        })
       }
     } catch (openaiError: any) {
       console.error("OpenAI API error:", openaiError)

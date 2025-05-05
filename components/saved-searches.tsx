@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getSavedSearches, deleteSearchResult, clearAllSearches } from "@/lib/saved-searches"
 import type { AnalysisResult } from "@/lib/types"
-import { CheckCircle, AlertTriangle, Trash2, Clock, ChevronDown, ChevronUp } from "lucide-react"
+import { CheckCircle, AlertTriangle, Trash2, Clock, ChevronDown, ChevronUp, AlertCircle } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
 interface SavedSearchesProps {
@@ -17,24 +17,40 @@ interface SavedSearchesProps {
 export function SavedSearches({ onSelectSearch }: SavedSearchesProps) {
   const [savedSearches, setSavedSearches] = useState<AnalysisResult[]>([])
   const [expanded, setExpanded] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Load saved searches on component mount
   useEffect(() => {
-    const { searches } = getSavedSearches()
-    setSavedSearches(searches)
+    try {
+      const { searches } = getSavedSearches()
+      setSavedSearches(searches)
+    } catch (err) {
+      console.error("Error loading saved searches:", err)
+      setError("Failed to load saved searches")
+    }
   }, [])
 
   // Handle deleting a search
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent triggering the parent click
-    deleteSearchResult(id)
-    setSavedSearches((prev) => prev.filter((search) => search.id !== id))
+    try {
+      deleteSearchResult(id)
+      setSavedSearches((prev) => prev.filter((search) => search.id !== id))
+    } catch (err) {
+      console.error("Error deleting search:", err)
+      setError("Failed to delete search")
+    }
   }
 
   // Handle clearing all searches
   const handleClearAll = () => {
-    clearAllSearches()
-    setSavedSearches([])
+    try {
+      clearAllSearches()
+      setSavedSearches([])
+    } catch (err) {
+      console.error("Error clearing searches:", err)
+      setError("Failed to clear searches")
+    }
   }
 
   // Format the timestamp for display
@@ -46,7 +62,7 @@ export function SavedSearches({ onSelectSearch }: SavedSearchesProps) {
     }
   }
 
-  if (savedSearches.length === 0) {
+  if (savedSearches.length === 0 && !error) {
     return null
   }
 
@@ -66,18 +82,27 @@ export function SavedSearches({ onSelectSearch }: SavedSearchesProps) {
 
       {expanded && (
         <CardContent className="pt-0">
-          <div className="space-y-3">
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearAll}
-                className="text-xs border-red-200 text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="h-3 w-3 mr-1" />
-                Clear All
-              </Button>
+          {error && (
+            <div className="bg-red-50 p-3 rounded-md border border-red-200 mb-3 flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-red-700 text-sm">{error}</p>
             </div>
+          )}
+
+          <div className="space-y-3">
+            {savedSearches.length > 0 && (
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearAll}
+                  className="text-xs border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Clear All
+                </Button>
+              </div>
+            )}
 
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
               {savedSearches.map((search) => (

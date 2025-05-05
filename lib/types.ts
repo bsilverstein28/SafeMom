@@ -7,6 +7,7 @@ export interface AnalysisResult {
   harmfulIngredients: { name: string; reason: string }[]
   isSafe: boolean
   parsingError?: boolean
+  isFood?: boolean
 }
 
 export interface SavedSearches {

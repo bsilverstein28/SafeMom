@@ -26,15 +26,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
 
-    const { base64Image } = body
+    // Check for either imageUrl or base64Image
+    const { imageUrl, base64Image } = body
 
-    if (!base64Image) {
-      console.error("No base64Image provided in request body")
+    if (!imageUrl && !base64Image) {
+      console.error("Neither imageUrl nor base64Image provided in request body")
       console.log("Request body keys:", Object.keys(body))
-      return NextResponse.json({ error: "No base64Image provided" }, { status: 400 })
+      return NextResponse.json({ error: "No image data provided" }, { status: 400 })
     }
 
-    console.log("Base64 image received (length):", base64Image.length)
+    // Log what we received
+    if (imageUrl) {
+      console.log("Image URL received (length):", imageUrl.length)
+    }
+    if (base64Image) {
+      console.log("Base64 image received (length):", base64Image.length)
+    }
 
     // Access the API key securely
     const apiKey = process.env.OPENAI_API_KEY
@@ -45,6 +52,20 @@ export async function POST(req: Request) {
     }
 
     try {
+      // Determine which image source to use
+      let imageSource
+      if (base64Image) {
+        imageSource = {
+          url: `data:image/jpeg;base64,${base64Image}`,
+        }
+      } else if (imageUrl) {
+        imageSource = {
+          url: imageUrl,
+        }
+      } else {
+        return NextResponse.json({ error: "No valid image source provided" }, { status: 400 })
+      }
+
       // Construct the request exactly as shown in the example
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -60,13 +81,11 @@ export async function POST(req: Request) {
               content: [
                 {
                   type: "image_url",
-                  image_url: {
-                    url: `data:image/jpeg;base64,${base64Image}`,
-                  },
+                  image_url: imageSource,
                 },
                 {
                   type: "text",
-                  text: "What product is shown in this image? Provide ONLY the brand and product name.",
+                  text: "What product is shown in this image? This could be a skincare product, makeup, food item (including prepared foods), or other consumer product. Provide ONLY the brand and product name or dish name for prepared foods. If you cannot identify the product clearly, respond with exactly: 'I'm unable to identify this. Please try another image.'",
                 },
               ],
             },

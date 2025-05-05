@@ -63,10 +63,10 @@
     "svelte": "latest",
     "vue": "latest",
     "vue-router": "latest",
-    "@vercel/blob": "latest",
-    "uuid": "latest",
     "@vercel/analytics": "latest",
-    "@vercel/speed-insights": "latest"
+    "@vercel/speed-insights": "latest",
+    "@vercel/blob": "latest",
+    "uuid": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

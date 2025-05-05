@@ -82,7 +82,7 @@ export async function POST(req: Request) {
                 },
                 {
                   type: "text",
-                  text: "What skincare product is shown in this image? Provide ONLY the brand and product name.",
+                  text: "What product is shown in this image? This could be a skincare product, makeup, food item (including prepared foods), or other consumer product. Provide ONLY the brand and product name or dish name for prepared foods.",
                 },
               ],
             },
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
                     },
                     {
                       type: "text",
-                      text: "What skincare product is shown in this image? Provide ONLY the brand and product name.",
+                      text: "What product is shown in this image? This could be a skincare product, makeup, food item (including prepared foods), or other consumer product. Provide ONLY the brand and product name or dish name for prepared foods.",
                     },
                   ],
                 },

@@ -1,6 +1,6 @@
 "use server"
 
-import { makeApiRequest, getBaseUrl } from "@/lib/api-utils"
+import { makeApiRequest, getBaseUrl, safeParseJson } from "@/lib/api-utils"
 
 // Helper function to convert a URL to base64
 async function urlToBase64(url: string): Promise<string | null> {
@@ -33,12 +33,75 @@ export async function identifyProduct(imageUrl: string) {
     }
 
     console.log("Image URL length:", imageUrl.length)
+    console.log("Image URL type:", imageUrl.startsWith("data:") ? "data URL" : "regular URL")
 
-    // Try to convert the image URL to base64 if it's a remote URL
-    let base64Image = null
+    // For data URLs, extract the base64 part and use the analyze-base64 endpoint
+    if (imageUrl.startsWith("data:")) {
+      console.log("Processing data URL...")
+      const base64Part = imageUrl.split(",")[1]
+
+      if (!base64Part) {
+        console.error("Invalid data URL format")
+        return { error: "Invalid data URL format" }
+      }
+
+      try {
+        const response = await fetch(`${getBaseUrl()}/api/analyze-base64`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ base64Image: base64Part }),
+        })
+
+        if (!response.ok) {
+          console.error("Base64 API call failed, status:", response.status)
+          return {
+            error: `API error: ${response.status}`,
+            diagnostics: {
+              statusCode: response.status,
+              endpoint: "/api/analyze-base64",
+            },
+          }
+        }
+
+        // Use the safe JSON parser to handle potential HTML responses
+        const parseResult = await safeParseJson(response)
+
+        if (parseResult.error) {
+          console.error("Error parsing response:", parseResult.error)
+          if (parseResult.html) {
+            console.error("Received HTML instead of JSON:", parseResult.html.substring(0, 200))
+          }
+          return { error: parseResult.error, diagnostics: { htmlResponse: parseResult.html?.substring(0, 500) } }
+        } else if (parseResult.data?.choices && parseResult.data.choices[0] && parseResult.data.choices[0].message) {
+          const productName = parseResult.data.choices[0].message.content
+          console.log("Product identified using data URL approach:", productName)
+
+          // Check if the product name indicates inability to identify
+          if (
+            !productName ||
+            productName.toLowerCase().includes("unable to identify") ||
+            productName.toLowerCase().includes("can't identify") ||
+            productName.toLowerCase().includes("cannot identify") ||
+            productName.toLowerCase().includes("not clear") ||
+            productName.toLowerCase().includes("not visible")
+          ) {
+            return { unidentifiable: true }
+          }
+
+          return { product: productName }
+        }
+      } catch (dataUrlError) {
+        console.error("Error with data URL API call:", dataUrlError)
+        return { error: `Data URL processing error: ${dataUrlError.message}` }
+      }
+    }
+
+    // For HTTP URLs, try to convert to base64 first
     if (imageUrl.startsWith("http")) {
       console.log("Converting remote URL to base64...")
-      base64Image = await urlToBase64(imageUrl)
+      const base64Image = await urlToBase64(imageUrl)
 
       if (base64Image) {
         console.log("Successfully converted image to base64")
@@ -53,16 +116,41 @@ export async function identifyProduct(imageUrl: string) {
             body: JSON.stringify({ base64Image }),
           })
 
-          if (response.ok) {
-            const data = await response.json()
-            if (data.choices && data.choices[0] && data.choices[0].message) {
-              const productName = data.choices[0].message.content
+          if (!response.ok) {
+            console.error("Base64 API call failed, status:", response.status)
+            // Continue to fallback approach
+          } else {
+            // Use the safe JSON parser to handle potential HTML responses
+            const parseResult = await safeParseJson(response)
+
+            if (parseResult.error) {
+              console.error("Error parsing response:", parseResult.error)
+              if (parseResult.html) {
+                console.error("Received HTML instead of JSON:", parseResult.html.substring(0, 200))
+              }
+              // Continue to fallback approach
+            } else if (
+              parseResult.data?.choices &&
+              parseResult.data.choices[0] &&
+              parseResult.data.choices[0].message
+            ) {
+              const productName = parseResult.data.choices[0].message.content
               console.log("Product identified using base64 approach:", productName)
+
+              // Check if the product name indicates inability to identify
+              if (
+                !productName ||
+                productName.toLowerCase().includes("unable to identify") ||
+                productName.toLowerCase().includes("can't identify") ||
+                productName.toLowerCase().includes("cannot identify") ||
+                productName.toLowerCase().includes("not clear") ||
+                productName.toLowerCase().includes("not visible")
+              ) {
+                return { unidentifiable: true }
+              }
 
               return { product: productName }
             }
-          } else {
-            console.log("Base64 approach failed, status:", response.status)
           }
         } catch (base64Error) {
           console.error("Error with base64 API call:", base64Error)
@@ -71,45 +159,17 @@ export async function identifyProduct(imageUrl: string) {
       }
     }
 
-    // If the image is already a data URL (base64)
-    if (imageUrl.startsWith("data:image")) {
-      console.log("Image is already a data URL")
+    // Fallback to the original approach with the /api/analyze endpoint
+    console.log("Falling back to original approach with /api/analyze endpoint...")
 
-      // Extract the base64 part
-      const base64Part = imageUrl.split(",")[1]
-      if (base64Part) {
-        try {
-          const response = await fetch(`${getBaseUrl()}/api/analyze-base64`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ base64Image: base64Part }),
-          })
+    // Make sure we're sending the correct data format
+    const requestData = { imageUrl }
+    console.log("Request data:", JSON.stringify(requestData).substring(0, 100) + "...")
 
-          if (response.ok) {
-            const data = await response.json()
-            if (data.choices && data.choices[0] && data.choices[0].message) {
-              const productName = data.choices[0].message.content
-              console.log("Product identified using data URL approach:", productName)
-
-              return { product: productName }
-            }
-          } else {
-            console.log("Data URL approach failed, status:", response.status)
-          }
-        } catch (dataUrlError) {
-          console.error("Error with data URL API call:", dataUrlError)
-          // Continue to fallback approach
-        }
-      }
-    }
-
-    // Fallback to the original approach
-    console.log("Falling back to original approach...")
     const { data, error, diagnostics } = await makeApiRequest({
       endpoint: "/api/analyze",
-      data: { imageUrl },
+      data: requestData,
+      method: "POST",
     })
 
     // Check for errors and return diagnostics if available
@@ -126,9 +186,16 @@ export async function identifyProduct(imageUrl: string) {
 
     const productName = data?.product
 
-    if (!productName) {
-      console.error("No product name returned from API")
-      return { error: "Could not identify product from image" }
+    if (
+      !productName ||
+      productName.toLowerCase().includes("unable to identify") ||
+      productName.toLowerCase().includes("can't identify") ||
+      productName.toLowerCase().includes("cannot identify") ||
+      productName.toLowerCase().includes("not clear") ||
+      productName.toLowerCase().includes("not visible")
+    ) {
+      console.error("No product name returned from API or unable to identify")
+      return { unidentifiable: true }
     }
 
     console.log("Identified product:", productName)
@@ -179,6 +246,7 @@ export async function findIngredients(productName: string) {
       }
 
       console.log("Found ingredients:", data.ingredients)
+      console.log("Is food product:", data.isFood)
 
       // Check if the product contains alcohol
       if (data.containsAlcohol) {
@@ -189,10 +257,14 @@ export async function findIngredients(productName: string) {
           alcoholWarning:
             data.alcoholWarning ||
             "This product appears to contain alcohol, which is never recommended for pregnant women",
+          isFood: data.isFood,
         }
       }
 
-      return { ingredients: data.ingredients }
+      return {
+        ingredients: data.ingredients,
+        isFood: data.isFood,
+      }
     } catch (fetchError: any) {
       console.error("Error fetching from API:", fetchError)
       return { error: `Failed to fetch from API: ${fetchError.message}` }
@@ -204,16 +276,17 @@ export async function findIngredients(productName: string) {
 }
 
 // Step 3: Analyze if any ingredients are harmful for pregnant women
-export async function analyzeIngredients(ingredients: string[]) {
+export async function analyzeIngredients(ingredients: string[], productName = "", isFood = false) {
   try {
     console.log("Analyzing ingredients for pregnancy safety:", ingredients)
+    console.log("Product is food:", isFood)
 
     // Use the API route for analyzing ingredients
     try {
       // Use makeApiRequest helper to handle errors consistently
       const { data, error, diagnostics } = await makeApiRequest({
         endpoint: "/api/analyze-ingredients",
-        data: { ingredients },
+        data: { ingredients, productName, isFood },
         method: "POST",
       })
 

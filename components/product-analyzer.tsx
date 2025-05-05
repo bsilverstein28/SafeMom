@@ -7,7 +7,19 @@ import { ImageUploader } from "@/components/image-uploader"
 import { AnalysisResults } from "@/components/analysis-results"
 import { SavedSearches } from "@/components/saved-searches"
 import { identifyProduct, findIngredients, analyzeIngredients } from "@/actions/analyze-product"
-import { ArrowRight, CheckCircle, Loader2, WifiOff, Save, Check, AlertTriangle } from "lucide-react"
+import {
+  ArrowRight,
+  CheckCircle,
+  Loader2,
+  WifiOff,
+  Save,
+  Check,
+  AlertTriangle,
+  Utensils,
+  Sparkles,
+  ImageOff,
+  RefreshCw,
+} from "lucide-react"
 import { StepIndicator } from "@/components/step-indicator"
 import { ErrorDisplay } from "@/components/error-display"
 import { saveSearchResult } from "@/lib/saved-searches"
@@ -29,6 +41,10 @@ export function ProductAnalyzer() {
   const [isSaved, setIsSaved] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [alcoholWarning, setAlcoholWarning] = useState<string | null>(null)
+  const [isFood, setIsFood] = useState(false)
+  const [isUnidentifiable, setIsUnidentifiable] = useState(false)
+  const [hasJsonParseError, setHasJsonParseError] = useState(false)
+  const [hasBadRequestError, setHasBadRequestError] = useState(false)
 
   // Step results
   const [productName, setProductName] = useState<string>("")
@@ -65,12 +81,30 @@ export function ProductAnalyzer() {
     setIsFromSavedSearch(false)
     setIsSaved(false)
     setAlcoholWarning(null)
+    setIsFood(false)
+    setIsUnidentifiable(false)
+    setHasJsonParseError(false)
+    setHasBadRequestError(false)
 
     // If we already have a product name from the direct analysis, use it and skip to step 2
     if (detectedProduct) {
       console.log("Product detected during upload:", detectedProduct)
-      setProductName(detectedProduct)
-      setCurrentStep(2)
+
+      // Check if the product name indicates inability to identify
+      if (
+        detectedProduct.toLowerCase().includes("unable to identify") ||
+        detectedProduct.toLowerCase().includes("can't identify") ||
+        detectedProduct.toLowerCase().includes("cannot identify") ||
+        detectedProduct.toLowerCase().includes("not clear") ||
+        detectedProduct.toLowerCase().includes("not visible")
+      ) {
+        setIsUnidentifiable(true)
+        setCurrentStep(1)
+        setProductName("")
+      } else {
+        setProductName(detectedProduct)
+        setCurrentStep(2)
+      }
     } else {
       console.log("No product detected during upload, staying at step 1")
       setCurrentStep(1)
@@ -89,6 +123,10 @@ export function ProductAnalyzer() {
     setErrorDiagnostics(null)
     setIsSaved(false)
     setAlcoholWarning(null)
+    setIsFood(false)
+    setIsUnidentifiable(false)
+    setHasJsonParseError(false)
+    setHasBadRequestError(false)
   }
 
   const handleReset = () => {
@@ -99,6 +137,10 @@ export function ProductAnalyzer() {
     setIsFromSavedSearch(false)
     setIsSaved(false)
     setAlcoholWarning(null)
+    setIsFood(false)
+    setIsUnidentifiable(false)
+    setHasJsonParseError(false)
+    setHasBadRequestError(false)
     resetResults()
   }
 
@@ -122,6 +164,10 @@ export function ProductAnalyzer() {
     setError(null)
     setErrorDiagnostics(null)
     setAlcoholWarning(null)
+    setIsFood(search.isFood || false)
+    setIsUnidentifiable(false)
+    setHasJsonParseError(false)
+    setHasBadRequestError(false)
   }
 
   // Save the current result
@@ -142,6 +188,7 @@ export function ProductAnalyzer() {
         harmfulIngredients: safetyResults.harmfulIngredients || [],
         isSafe: safetyResults.isSafe,
         parsingError: safetyResults.parsingError,
+        isFood: isFood,
       }
 
       saveSearchResult(searchResult)
@@ -174,11 +221,37 @@ export function ProductAnalyzer() {
     setError(null)
     setErrorDiagnostics(null)
     setAlcoholWarning(null)
+    setIsFood(false)
+    setIsUnidentifiable(false)
+    setHasJsonParseError(false)
+    setHasBadRequestError(false)
 
     try {
       console.log("Identifying product from image URL:", imageUrl.substring(0, 50) + "...")
       const result = await identifyProduct(imageUrl)
       console.log("Product identification result:", result)
+
+      // Check if there was a JSON parse error
+      if (result.error && result.error.includes("Failed to parse JSON")) {
+        setHasJsonParseError(true)
+        setError("There was an error processing the image. Please try again or use a different image.")
+        return
+      }
+
+      // Check for 400 Bad Request error
+      if (result.diagnostics && result.diagnostics.statusCode === 400) {
+        setHasBadRequestError(true)
+        setError("The server couldn't process this image. Please try a different image or format.")
+        setErrorDiagnostics(result.diagnostics)
+        return
+      }
+
+      // Check for unidentifiable result
+      if (result.unidentifiable) {
+        setIsUnidentifiable(true)
+        setError("I'm unable to identify this. Please try another image.")
+        return
+      }
 
       // Check for error in the result
       if (result.error) {
@@ -193,6 +266,10 @@ export function ProductAnalyzer() {
         console.log("Product identified successfully:", result.product)
         setProductName(result.product)
         setCurrentStep(2)
+      } else {
+        // If we don't have a product name but also no error or unidentifiable flag
+        setError("I'm unable to identify this. Please try another image.")
+        setIsUnidentifiable(true)
       }
     } catch (err: any) {
       console.error("Product identification error:", err)
@@ -220,6 +297,8 @@ export function ProductAnalyzer() {
     setError(null)
     setErrorDiagnostics(null)
     setAlcoholWarning(null)
+    setHasJsonParseError(false)
+    setHasBadRequestError(false)
 
     try {
       console.log("Finding ingredients for product:", productName)
@@ -227,6 +306,21 @@ export function ProductAnalyzer() {
       // Call the server action directly with the product name
       const result = await findIngredients(productName)
       console.log("Find ingredients result:", result)
+
+      // Check for JSON parse error
+      if (result.error && result.error.includes("Failed to parse JSON")) {
+        setHasJsonParseError(true)
+        setError("There was an error processing the request. Please try again.")
+        return
+      }
+
+      // Check for 400 Bad Request error
+      if (result.diagnostics && result.diagnostics.statusCode === 400) {
+        setHasBadRequestError(true)
+        setError("The server couldn't process this request. Please try again with a different product name.")
+        setErrorDiagnostics(result.diagnostics)
+        return
+      }
 
       // Check for error in the result
       if (result.error) {
@@ -236,6 +330,9 @@ export function ProductAnalyzer() {
         }
         return
       }
+
+      // Set the isFood flag based on the API response
+      setIsFood(result.isFood || false)
 
       // Check if the product contains alcohol
       if (result.containsAlcohol && result.alcoholWarning) {
@@ -295,11 +392,29 @@ export function ProductAnalyzer() {
     setError(null)
     setErrorDiagnostics(null)
     setIsSaved(false)
+    setHasJsonParseError(false)
+    setHasBadRequestError(false)
 
     try {
       console.log("Analyzing ingredients:", ingredients)
-      const result = await analyzeIngredients(ingredients)
+      console.log("Product is food:", isFood)
+      const result = await analyzeIngredients(ingredients, productName, isFood)
       console.log("Ingredient analysis result:", result)
+
+      // Check for JSON parse error
+      if (result.error && result.error.includes("Failed to parse JSON")) {
+        setHasJsonParseError(true)
+        setError("There was an error processing the request. Please try again.")
+        return
+      }
+
+      // Check for 400 Bad Request error
+      if (result.diagnostics && result.diagnostics.statusCode === 400) {
+        setHasBadRequestError(true)
+        setError("The server couldn't process these ingredients. Please try again.")
+        setErrorDiagnostics(result.diagnostics)
+        return
+      }
 
       // Check for error in the result
       if (result.error) {
@@ -433,29 +548,88 @@ export function ProductAnalyzer() {
               <div className="flex-1 space-y-4">
                 <h3 className="text-lg font-medium text-purple-800">Step 1: Identify Product</h3>
                 <p className="text-gray-600 text-sm">First, we'll use AI to identify the product in your photo.</p>
-                <Button
-                  onClick={handleIdentifyProduct}
-                  disabled={isLoading || !isOnline}
-                  className="w-full bg-purple-600 hover:bg-purple-700"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Identifying Product...
-                    </>
-                  ) : !isOnline ? (
-                    <>
-                      <WifiOff className="mr-2 h-4 w-4" />
-                      Offline - Check Connection
-                    </>
-                  ) : (
-                    <>
-                      Identify Product
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-                {error && <ErrorDisplay error={error} diagnostics={errorDiagnostics} />}
+
+                {hasJsonParseError ? (
+                  <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-amber-800">Server Error</h4>
+                        <p className="text-amber-700 text-sm mt-1">
+                          There was an error processing your request. Please try again.
+                        </p>
+                        <Button
+                          onClick={handleIdentifyProduct}
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 border-amber-300 text-amber-700 hover:bg-amber-100"
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Retry
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : hasBadRequestError ? (
+                  <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-amber-800">Invalid Image Format</h4>
+                        <p className="text-amber-700 text-sm mt-1">
+                          The server couldn't process this image. Please try a different image or format.
+                        </p>
+                        <Button
+                          onClick={handleReset}
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 border-amber-300 text-amber-700 hover:bg-amber-100"
+                        >
+                          Upload Different Image
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : isUnidentifiable ? (
+                  <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
+                    <div className="flex items-start gap-2">
+                      <ImageOff className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-amber-800">Unable to Identify Image</h4>
+                        <p className="text-amber-700 text-sm mt-1">
+                          I'm unable to identify this. Please try another image.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={handleIdentifyProduct}
+                    disabled={isLoading || !isOnline}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Identifying Product...
+                      </>
+                    ) : !isOnline ? (
+                      <>
+                        <WifiOff className="mr-2 h-4 w-4" />
+                        Offline - Check Connection
+                      </>
+                    ) : (
+                      <>
+                        Identify Product
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                )}
+
+                {error && !isUnidentifiable && !hasJsonParseError && !hasBadRequestError && (
+                  <ErrorDisplay error={error} diagnostics={errorDiagnostics} />
+                )}
               </div>
             </div>
             <Button
@@ -493,31 +667,76 @@ export function ProductAnalyzer() {
                 <p className="text-gray-600 text-sm">
                   Next, we'll use AI to search for the ingredients in {productName}.
                 </p>
-                <Button
-                  onClick={handleFindIngredients}
-                  disabled={isLoading || !isOnline || !productName}
-                  className="w-full bg-purple-600 hover:bg-purple-700"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Finding Ingredients...
-                    </>
-                  ) : !isOnline ? (
-                    <>
-                      <WifiOff className="mr-2 h-4 w-4" />
-                      Offline - Check Connection
-                    </>
-                  ) : !productName ? (
-                    "No Product Identified"
-                  ) : (
-                    <>
-                      Find Ingredients
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-                {error && <ErrorDisplay error={error} diagnostics={errorDiagnostics} />}
+                {hasJsonParseError ? (
+                  <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-amber-800">Server Error</h4>
+                        <p className="text-amber-700 text-sm mt-1">
+                          There was an error processing your request. Please try again.
+                        </p>
+                        <Button
+                          onClick={handleFindIngredients}
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 border-amber-300 text-amber-700 hover:bg-amber-100"
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Retry
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : hasBadRequestError ? (
+                  <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-amber-800">Invalid Request</h4>
+                        <p className="text-amber-700 text-sm mt-1">
+                          The server couldn't process this request. Please try again with a different product name.
+                        </p>
+                        <Button
+                          onClick={handleReset}
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 border-amber-300 text-amber-700 hover:bg-amber-100"
+                        >
+                          Start Over
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={handleFindIngredients}
+                    disabled={isLoading || !isOnline || !productName}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Finding Ingredients...
+                      </>
+                    ) : !isOnline ? (
+                      <>
+                        <WifiOff className="mr-2 h-4 w-4" />
+                        Offline - Check Connection
+                      </>
+                    ) : !productName ? (
+                      "No Product Identified"
+                    ) : (
+                      <>
+                        Find Ingredients
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                )}
+                {error && !hasJsonParseError && !hasBadRequestError && (
+                  <ErrorDisplay error={error} diagnostics={errorDiagnostics} />
+                )}
               </div>
             </div>
             <Button
@@ -555,6 +774,18 @@ export function ProductAnalyzer() {
                     <h4 className="font-medium text-green-800">Ingredients Found</h4>
                   </div>
                   <p className="mt-1 text-green-700 text-sm">{ingredients.length} ingredients identified</p>
+                  {isFood && (
+                    <div className="flex items-center gap-1 mt-1 text-green-700 text-sm">
+                      <Utensils className="h-4 w-4" />
+                      <span>Food product</span>
+                    </div>
+                  )}
+                  {!isFood && (
+                    <div className="flex items-center gap-1 mt-1 text-green-700 text-sm">
+                      <Sparkles className="h-4 w-4" />
+                      <span>Skincare/cosmetic product</span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex-1 space-y-4">
@@ -570,29 +801,74 @@ export function ProductAnalyzer() {
                     ))}
                   </ul>
                 </div>
-                <Button
-                  onClick={handleAnalyzeIngredients}
-                  disabled={isLoading || !isOnline || ingredients.length === 0}
-                  className="w-full bg-purple-600 hover:bg-purple-700"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Analyzing Ingredients...
-                    </>
-                  ) : !isOnline ? (
-                    <>
-                      <WifiOff className="mr-2 h-4 w-4" />
-                      Offline - Check Connection
-                    </>
-                  ) : (
-                    <>
-                      Analyze for Pregnancy Safety
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-                {error && <ErrorDisplay error={error} diagnostics={errorDiagnostics} />}
+                {hasJsonParseError ? (
+                  <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-amber-800">Server Error</h4>
+                        <p className="text-amber-700 text-sm mt-1">
+                          There was an error processing your request. Please try again.
+                        </p>
+                        <Button
+                          onClick={handleAnalyzeIngredients}
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 border-amber-300 text-amber-700 hover:bg-amber-100"
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Retry
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : hasBadRequestError ? (
+                  <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-amber-800">Invalid Request</h4>
+                        <p className="text-amber-700 text-sm mt-1">
+                          The server couldn't process these ingredients. Please try again.
+                        </p>
+                        <Button
+                          onClick={handleReset}
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 border-amber-300 text-amber-700 hover:bg-amber-100"
+                        >
+                          Start Over
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={handleAnalyzeIngredients}
+                    disabled={isLoading || !isOnline || ingredients.length === 0}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Analyzing Ingredients...
+                      </>
+                    ) : !isOnline ? (
+                      <>
+                        <WifiOff className="mr-2 h-4 w-4" />
+                        Offline - Check Connection
+                      </>
+                    ) : (
+                      <>
+                        Analyze for Pregnancy Safety
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                )}
+                {error && !hasJsonParseError && !hasBadRequestError && (
+                  <ErrorDisplay error={error} diagnostics={errorDiagnostics} />
+                )}
               </div>
             </div>
             <Button
@@ -625,6 +901,7 @@ export function ProductAnalyzer() {
                       harmfulIngredients: safetyResults.harmfulIngredients,
                       isSafe: safetyResults.isSafe,
                       parsingError: safetyResults.parsingError,
+                      isFood: isFood,
                     }}
                   />
                 )}
