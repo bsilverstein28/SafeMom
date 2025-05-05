@@ -5,6 +5,7 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { PreviewAuth } from "@/components/preview-auth"
 import { Analytics } from "@vercel/analytics/react"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Suspense } from "react"
 import { Header } from "@/components/header"
 
@@ -31,6 +32,7 @@ export default function RootLayout({
             <PreviewAuth />
           </Suspense>
           <Analytics />
+          <SpeedInsights />
         </ThemeProvider>
       </body>
     </html>
