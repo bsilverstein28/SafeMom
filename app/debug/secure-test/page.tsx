@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { Base64Tester } from "@/components/base64-tester"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
