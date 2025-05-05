@@ -68,17 +68,12 @@ export default function DebugPage() {
               <div className="bg-white p-4 rounded-lg shadow-sm border border-purple-200">
                 <h3 className="font-medium text-purple-800 mb-2">Runtime</h3>
                 <p className="text-sm text-gray-600">
-                  This page is running in{" "}
-                  <code className="bg-gray-100 px-1 py-0.5 rounded">
-                    {typeof window === "undefined" ? "server" : "client"}
-                  </code>
+                  This page is running in <code className="bg-gray-100 px-1 py-0.5 rounded">server</code>
                 </p>
               </div>
               <div className="bg-white p-4 rounded-lg shadow-sm border border-purple-200">
                 <h3 className="font-medium text-purple-800 mb-2">Base URL</h3>
-                <p className="text-sm text-gray-600">
-                  {typeof window !== "undefined" ? window.location.origin : "Server-side rendering"}
-                </p>
+                <p className="text-sm text-gray-600">Server-side rendering</p>
               </div>
             </div>
           </section>

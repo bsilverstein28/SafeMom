@@ -27,7 +27,7 @@ export function DiagnosticTool() {
       })
 
       // Test the environment variables
-      const envResponse = await fetch("/api/debug?_=" + new Date().getTime(), {
+      const envResponse = await fetch("/api/debug?_" + new Date().getTime(), {
         method: "GET",
         cache: "no-store",
       })

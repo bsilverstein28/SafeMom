@@ -1,3 +1,5 @@
+"use client"
+
 import { ProductAnalyzer } from "@/components/product-analyzer"
 import { ConnectivityCheck } from "@/components/connectivity-check"
 import Link from "next/link"

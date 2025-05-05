@@ -10,7 +10,12 @@ const nextConfig = {
   },
   // Ensure images from OpenAI and other sources can be used
   images: {
-    domains: ["oaidalleapiprodscus.blob.core.windows.net", "replicate.delivery"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
     unoptimized: true,
   },
   eslint: {
@@ -19,6 +24,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Add this to help with potential transpilation issues
+  transpilePackages: ["lucide-react"],
 }
 
 module.exports = nextConfig

@@ -1,3 +1,5 @@
+"use client"
+
 import { NavLink } from "@/components/nav-link"
 import { History } from "lucide-react"
 import Image from "next/image"
