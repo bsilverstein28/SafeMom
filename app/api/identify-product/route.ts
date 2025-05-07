@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Invalid image URL format" }, { status: 400 })
       }
 
-      // Make a direct fetch call to the OpenAI API
+      // Make a direct fetch call to the OpenAI API with the updated instructions
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -58,20 +58,18 @@ export async function POST(request: Request) {
           model: "gpt-4o",
           messages: [
             {
-              role: "system",
-              content:
-                "You are a product identification expert. Identify the exact brand and product name from images.",
-            },
-            {
               role: "user",
               content: [
                 {
                   type: "text",
-                  text: "What product is shown in this image? Provide ONLY the brand and product name, nothing else.",
+                  text: "You are an AI assistant checking whether a product is an alcoholic beverage, to help determine if it is safe for pregnant women. Review the image closely.\n\nInstructions:\n1. If you identify the product as an alcoholic beverage with **high confidence**, return this exact message:\n'This product appears to contain alcohol, which is not recommended for pregnant women.'\n\n2. If you determine it **does NOT** contain alcohol, return the **name or type of the product** you recognize (e.g. 'Eucerin Daily Hydration Lotion' or 'Coca-Cola soda').\n\n3. If you are **not confident** or cannot identify the product, return:\n'I could not confidently identify this product. Please try another image.'\n\nDo not include any extra commentary or descriptions beyond these rules.",
                 },
                 {
                   type: "image_url",
-                  image_url: { url: imageUrl, detail: "auto" },
+                  image_url: {
+                    url: imageUrl,
+                    detail: "auto",
+                  },
                 },
               ],
             },

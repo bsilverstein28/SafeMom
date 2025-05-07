@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       })
       console.log(`File also uploaded to Blob. URL: ${blob.url}`)
 
-      // Make a direct fetch call to the OpenAI API using the exact structure from the example
+      // Make a direct fetch call to the OpenAI API with the updated instructions
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -75,14 +75,14 @@ export async function POST(req: Request) {
               role: "user",
               content: [
                 {
+                  type: "text",
+                  text: "You are an AI assistant checking whether a product is an alcoholic beverage, to help determine if it is safe for pregnant women. Review the image closely.\n\nInstructions:\n1. If you identify the product as an alcoholic beverage with **high confidence**, return this exact message:\n'This product appears to contain alcohol, which is not recommended for pregnant women.'\n\n2. If you determine it **does NOT** contain alcohol, return the **name or type of the product** you recognize (e.g. 'Eucerin Daily Hydration Lotion' or 'Coca-Cola soda').\n\n3. If you are **not confident** or cannot identify the product, return:\n'I could not confidently identify this product. Please try another image.'\n\nDo not include any extra commentary or descriptions beyond these rules.",
+                },
+                {
                   type: "image_url",
                   image_url: {
                     url: `data:image/jpeg;base64,${base64Image}`,
                   },
-                },
-                {
-                  type: "text",
-                  text: "What skincare product is shown in this image? Provide ONLY the brand and product name.",
                 },
               ],
             },
@@ -112,14 +112,14 @@ export async function POST(req: Request) {
                   role: "user",
                   content: [
                     {
+                      type: "text",
+                      text: "You are an AI assistant checking whether a product is an alcoholic beverage, to help determine if it is safe for pregnant women. Review the image closely.\n\nInstructions:\n1. If you identify the product as an alcoholic beverage with **high confidence**, return this exact message:\n'This product appears to contain alcohol, which is not recommended for pregnant women.'\n\n2. If you determine it **does NOT** contain alcohol, return the **name or type of the product** you recognize (e.g. 'Eucerin Daily Hydration Lotion' or 'Coca-Cola soda').\n\n3. If you are **not confident** or cannot identify the product, return:\n'I could not confidently identify this product. Please try another image.'\n\nDo not include any extra commentary or descriptions beyond these rules.",
+                    },
+                    {
                       type: "image_url",
                       image_url: {
                         url: blob.url, // Using the blob URL instead
                       },
-                    },
-                    {
-                      type: "text",
-                      text: "What skincare product is shown in this image? Provide ONLY the brand and product name.",
                     },
                   ],
                 },

@@ -72,8 +72,32 @@ export function ProductAnalyzer() {
     if (detectedProduct) {
       console.log("Product detected during upload:", detectedProduct)
 
+      // Check if the product is identified as containing alcohol
+      if (detectedProduct === "This product appears to contain alcohol, which is not recommended for pregnant women.") {
+        console.log("Alcohol detected in product during upload")
+        setProductName("Alcoholic Beverage")
+        setAlcoholWarning(detectedProduct)
+
+        // Create safety results for alcohol
+        setSafetyResults({
+          harmfulIngredients: [
+            {
+              name: "Alcohol (Ethanol)",
+              reason:
+                "Alcohol consumption during pregnancy can lead to fetal alcohol spectrum disorders (FASDs), which can cause physical, behavioral, and learning problems in the baby. No amount of alcohol is known to be safe during pregnancy.",
+            },
+          ],
+          isSafe: false,
+        })
+
+        // Skip to results
+        setCurrentStep(4)
+        return
+      }
+
       // Check if the product name indicates inability to identify
-      if (
+      else if (
+        detectedProduct === "I could not confidently identify this product. Please try another image." ||
         detectedProduct.toLowerCase().includes("unable to identify") ||
         detectedProduct.toLowerCase().includes("can't identify") ||
         detectedProduct.toLowerCase().includes("cannot identify") ||
@@ -155,7 +179,7 @@ export function ProductAnalyzer() {
 
   // Save the current result
   const handleSaveResult = () => {
-    if (!imageUrl || !productName || !safetyResults || ingredients.length === 0) {
+    if (!imageUrl || !productName || !safetyResults || (ingredients.length === 0 && !alcoholWarning)) {
       return
     }
 
@@ -214,6 +238,7 @@ export function ProductAnalyzer() {
       if (result.unidentifiable) {
         setIsUnidentifiable(true)
         setError("I'm unable to identify this. Please try another image.")
+        setIsLoading(false)
         return
       }
 
@@ -223,6 +248,7 @@ export function ProductAnalyzer() {
         if (result.error.includes("No base64Image provided")) {
           setIsUnidentifiable(true)
           setError("I'm unable to identify this. Please try another image.")
+          setIsLoading(false)
           return
         }
 
@@ -230,14 +256,42 @@ export function ProductAnalyzer() {
         if (result.diagnostics) {
           setErrorDiagnostics(result.diagnostics)
         }
+        setIsLoading(false)
         return
       }
 
       if (result.product) {
         console.log("Product identified successfully:", result.product)
 
-        // Check if the product name indicates inability to identify
+        // Check if the product is identified as containing alcohol
         if (
+          result.product === "This product appears to contain alcohol, which is not recommended for pregnant women."
+        ) {
+          console.log("Alcohol detected in product")
+          setProductName("Alcoholic Beverage")
+          setAlcoholWarning(result.product)
+
+          // Create safety results for alcohol
+          setSafetyResults({
+            harmfulIngredients: [
+              {
+                name: "Alcohol (Ethanol)",
+                reason:
+                  "Alcohol consumption during pregnancy can lead to fetal alcohol spectrum disorders (FASDs), which can cause physical, behavioral, and learning problems in the baby. No amount of alcohol is known to be safe during pregnancy.",
+              },
+            ],
+            isSafe: false,
+          })
+
+          // Skip to results
+          setCurrentStep(4)
+          setIsLoading(false)
+          return
+        }
+
+        // Check if the product name indicates inability to identify
+        else if (
+          result.product === "I could not confidently identify this product. Please try another image." ||
           result.product.toLowerCase().includes("unable to identify") ||
           result.product.toLowerCase().includes("can't identify") ||
           result.product.toLowerCase().includes("cannot identify") ||
@@ -255,6 +309,7 @@ export function ProductAnalyzer() {
         ) {
           setIsUnidentifiable(true)
           setError("I'm unable to identify this. Please try another image.")
+          setIsLoading(false)
           return
         }
 
@@ -339,6 +394,69 @@ export function ProductAnalyzer() {
         // Skip to results
         setCurrentStep(4)
         return
+      }
+
+      // Check if any of the ingredients are alcoholic beverages
+      if (result.ingredients && result.ingredients.length > 0) {
+        const alcoholicBeverages = [
+          "wine",
+          "red wine",
+          "white wine",
+          "champagne",
+          "prosecco",
+          "beer",
+          "ale",
+          "lager",
+          "vodka",
+          "gin",
+          "rum",
+          "whiskey",
+          "whisky",
+          "bourbon",
+          "scotch",
+          "tequila",
+          "brandy",
+          "cognac",
+          "liqueur",
+          "schnapps",
+          "vermouth",
+          "cider",
+          "sake",
+          "mead",
+          "port",
+          "sherry",
+          "absinthe",
+          "mezcal",
+          "grappa",
+        ]
+
+        const foundAlcoholicIngredients = result.ingredients.filter((ingredient) =>
+          alcoholicBeverages.some((alcohol) => ingredient.toLowerCase().includes(alcohol.toLowerCase())),
+        )
+
+        if (foundAlcoholicIngredients.length > 0) {
+          console.log("Alcoholic beverages detected in ingredients:", foundAlcoholicIngredients)
+          setAlcoholWarning("This product contains alcoholic beverages, which are not recommended for pregnant women.")
+
+          // Set ingredients
+          setIngredients(result.ingredients)
+
+          // Create safety results for alcohol
+          setSafetyResults({
+            harmfulIngredients: [
+              {
+                name: foundAlcoholicIngredients.join(", "),
+                reason:
+                  "Alcohol consumption during pregnancy can lead to fetal alcohol spectrum disorders (FASDs), which can cause physical, behavioral, and learning problems in the baby. No amount of alcohol is known to be safe during pregnancy.",
+              },
+            ],
+            isSafe: false,
+          })
+
+          // Skip to results
+          setCurrentStep(4)
+          return
+        }
       }
 
       if (result.ingredients && result.ingredients.length > 0) {
