@@ -68,9 +68,26 @@ export async function POST(request: Request) {
               role: "user",
               content: `What ingredients are in ${productName}? Return the list of ingredients separated by commas. 
               
-              After listing the ingredients, on a new line, explicitly state whether this product contains alcohol as an ingredient (not just compounds with "alcohol" in the name like cetyl alcohol, which is not the same as ethanol). 
+              CRITICAL DISTINCTION:
+              - Alcoholic beverages: Products meant to be consumed/drunk that contain ethanol (e.g., wine, beer, spirits, cocktails)
+              - Cosmetics/skincare with alcohol: Products meant for external use that may list alcohol as an ingredient
               
-              Only say "CONTAINS_ALCOHOL: YES" if the product contains ethanol, ethyl alcohol, alcohol denat, SD alcohol, or isopropyl alcohol as an actual ingredient. Otherwise say "CONTAINS_ALCOHOL: NO".
+              RULES TO FOLLOW:
+              
+              1. IF AND ONLY IF the product is clearly an alcoholic beverage meant for drinking (wine, beer, spirits, hard seltzer, etc.):
+                 Return EXACTLY: "CONTAINS_ALCOHOL: YES" on a new line after listing ingredients.
+              
+              2. For ALL cosmetics, skincare, cleaning products, or any non-consumable products:
+                 Return "CONTAINS_ALCOHOL: NO" on a new line after listing ingredients
+                 EVEN IF these products contain alcohol in their ingredients list (like cetyl alcohol, denatured alcohol, etc.)
+                 EVEN IF the product has 'alcohol' in its name (like 'Alcohol-Free Toner' or 'Denatured Alcohol')
+              
+              EXAMPLES:
+              - Wine → "Water, grapes, ethanol, sulfites" followed by "CONTAINS_ALCOHOL: YES"
+              - Face toner with alcohol → "Water, glycerin, alcohol denat, fragrance" followed by "CONTAINS_ALCOHOL: NO"
+              - Hand sanitizer → "Ethyl alcohol, water, glycerin" followed by "CONTAINS_ALCOHOL: NO"
+              
+              REMEMBER: ONLY consumable alcoholic beverages should be marked with "CONTAINS_ALCOHOL: YES". ALL other products, even if they contain alcohol as an ingredient, should be marked with "CONTAINS_ALCOHOL: NO".
               
               If you can't find the exact product, provide the most likely ingredients based on similar products from the same brand and line.`,
             },
@@ -118,7 +135,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           ingredients: ingredientsList,
           containsAlcohol: true,
-          alcoholWarning: "This product appears to contain alcohol, which is never recommended for pregnant women",
+          alcoholWarning: "This product appears to contain alcohol, which is not recommended for pregnant women",
         })
       } else {
         return NextResponse.json({ ingredients: ingredientsList, containsAlcohol: false })
